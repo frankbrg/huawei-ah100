@@ -232,7 +232,7 @@ async def test_user_step_offers_normalized_deduplicated_nearby_scales(monkeypatc
     assert [option["value"] for option in options] == [
         "AA:BB:CC:DD:EE:FF",
         "AA:BB:CC:DD:EE:03",
-        "__manual__",
+        "manual",
     ]
     assert options[0]["label"] == "CH100 scale (AA:BB:CC:DD:EE:FF)"
     assert options[-1]["label"] == "Manual setup"
@@ -321,7 +321,7 @@ async def test_manual_sentinel_in_device_selector_opens_manual_form(monkeypatch)
     )
 
     await flow.async_step_user()
-    result = await flow.async_step_select_device({CONF_ADDRESS: "__manual__"})
+    result = await flow.async_step_select_device({CONF_ADDRESS: "manual"})
 
     assert result["type"] == "form"
     assert result["step_id"] == "manual"

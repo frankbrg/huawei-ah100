@@ -130,7 +130,7 @@
     },
     "nearby_scale": {
       "options": {
-        "__manual__": "Manual setup"
+        "manual": "Manual setup"
       }
     }
   }

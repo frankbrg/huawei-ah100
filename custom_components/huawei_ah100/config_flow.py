@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
-_MANUAL_DEVICE = "__manual__"
+_MANUAL_DEVICE = "manual"
 
 
 def _normalize_address(value: Any) -> str | None:
