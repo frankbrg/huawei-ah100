@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -25,7 +26,12 @@ class MeasurementStore:
             return None
 
     async def async_save(self, data: dict[str, Any]) -> None:
-        await self._hass.async_add_executor_job(self._save, data)
+        job = self._hass.async_add_executor_job(self._save, data)
+        try:
+            await asyncio.shield(job)
+        except asyncio.CancelledError:
+            await job
+            raise
 
     def _save(self, data: dict[str, Any]) -> None:
         self._path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
