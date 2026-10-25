@@ -49,7 +49,7 @@
           "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
           "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
           "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
-          "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+          "sparky_url": "Enter the server root URL only, without an API path.",
           "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
           "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
           "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
@@ -96,7 +96,7 @@
           "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
           "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
           "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
-          "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+          "sparky_url": "Enter the server root URL only, without an API path.",
           "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
           "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
           "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
@@ -198,7 +198,7 @@
             "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
             "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
-            "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+            "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account."
           }
         },
@@ -224,7 +224,7 @@
             "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
             "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
-            "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+            "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it."
           }
         }

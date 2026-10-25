@@ -49,7 +49,7 @@
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
           "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
-          "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+          "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
@@ -96,7 +96,7 @@
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
           "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
-          "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+          "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
@@ -198,7 +198,7 @@
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
             "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
-            "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+            "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil."
           }
         },
@@ -224,7 +224,7 @@
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
             "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
-            "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+            "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas."
           }
         }
