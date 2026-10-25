@@ -2,14 +2,23 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import probatio
 from homeassistant.components import bluetooth
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.const import CONF_ADDRESS
-from homeassistant.core import callback
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    OptionsFlow,
+    SubentryFlowResult,
+)
+from homeassistant.const import CONF_ADDRESS, CONF_NAME
+from homeassistant.core import callback, split_entity_id
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import selector
 
 from .const import (
@@ -17,11 +26,18 @@ from .const import (
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
+    CONF_LEGACY_PROFILE,
+    CONF_PERSON,
     CONF_SEX,
+    CONF_SPARKY_API_KEY,
+    CONF_SPARKY_ENABLED,
+    CONF_SPARKY_URL,
     CONF_USER_ID,
     DOMAIN,
     NAME,
+    SUBENTRY_PROFILE,
 )
+from .sparky import normalize_base_url
 
 if TYPE_CHECKING:
     from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
@@ -46,12 +62,32 @@ def _normalize_address(value: Any) -> str | None:
     return address if _MAC_RE.fullmatch(address) else None
 
 
-def _profile_schema(*, include_address: bool = False) -> probatio.Schema:
+DEFAULT_PROFILE_NAME = "Profile 1"
+
+
+def _connection_fields() -> dict[Any, Any]:
+    return {
+        probatio.Required(CONF_USER_ID, default=1): selector(
+            {"number": {"min": 0, "max": 255, "step": 1, "mode": "box"}}
+        ),
+        probatio.Required(CONF_ALLOW_BIND, default=False): selector({"boolean": {}}),
+    }
+
+
+def _profile_schema(
+    *,
+    include_address: bool = False,
+    include_connection: bool = False,
+    name_default: str = DEFAULT_PROFILE_NAME,
+) -> probatio.Schema:
     fields: dict[Any, Any] = {}
     if include_address:
         fields[probatio.Required(CONF_ADDRESS)] = selector({"text": {"type": "text"}})
     fields.update(
         {
+            probatio.Required(CONF_NAME, default=name_default): selector(
+                {"text": {"type": "text"}}
+            ),
             probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "text"}}),
             probatio.Required(CONF_HEIGHT): selector(
                 {"number": {"min": 1, "max": 255, "step": 1, "mode": "box"}}
@@ -68,18 +104,21 @@ def _profile_schema(*, include_address: bool = False) -> probatio.Schema:
             probatio.Required(CONF_INITIAL_WEIGHT): selector(
                 {"number": {"min": 0, "max": 300, "step": "any", "mode": "box"}}
             ),
-            probatio.Required(CONF_USER_ID, default=1): selector(
-                {"number": {"min": 0, "max": 255, "step": 1, "mode": "box"}}
-            ),
-            probatio.Required(CONF_ALLOW_BIND, default=False): selector({"boolean": {}}),
+            probatio.Optional(CONF_PERSON): selector({"entity": {"domain": "person"}}),
+            probatio.Required(CONF_SPARKY_ENABLED, default=False): selector({"boolean": {}}),
+            probatio.Optional(CONF_SPARKY_URL): selector({"text": {"type": "url"}}),
+            probatio.Optional(CONF_SPARKY_API_KEY): selector({"text": {"type": "password"}}),
         }
     )
+    if include_connection:
+        fields.update(_connection_fields())
     return probatio.Schema(fields)
 
 
-USER_SCHEMA = _profile_schema(include_address=True)
-BLUETOOTH_SCHEMA = _profile_schema()
-OPTIONS_SCHEMA = _profile_schema()
+PROFILE_SCHEMA = _profile_schema()
+USER_SCHEMA = _profile_schema(include_address=True, include_connection=True)
+BLUETOOTH_SCHEMA = _profile_schema(include_connection=True)
+OPTIONS_SCHEMA = probatio.Schema(_connection_fields())
 
 
 def _as_date(value: Any) -> date | None:
@@ -98,7 +137,11 @@ def _as_date(value: Any) -> date | None:
     return None
 
 
-def _profile_errors(user_input: dict[str, Any], today: date | None = None) -> dict[str, str]:
+def _profile_errors(
+    user_input: dict[str, Any],
+    today: date | None = None,
+    existing_data: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
     errors: dict[str, str] = {}
     today = today or date.today()
 
@@ -136,6 +179,36 @@ def _profile_errors(user_input: dict[str, Any], today: date | None = None) -> di
     ):
         errors[CONF_INITIAL_WEIGHT] = "invalid_weight"
 
+    person = user_input.get(CONF_PERSON)
+    if person is not None and _person_entity_id(person) is None:
+        errors[CONF_PERSON] = "invalid_person"
+
+    sparky_enabled = user_input.get(CONF_SPARKY_ENABLED, False)
+    if not isinstance(sparky_enabled, bool):
+        errors[CONF_SPARKY_ENABLED] = "invalid_sparky_enabled"
+    elif sparky_enabled:
+        sparky_url = user_input.get(CONF_SPARKY_URL) or (existing_data or {}).get(CONF_SPARKY_URL)
+        if not isinstance(sparky_url, str) or not sparky_url.strip():
+            errors[CONF_SPARKY_URL] = "invalid_sparky_url"
+        else:
+            try:
+                normalize_base_url(sparky_url)
+            except ValueError:
+                errors[CONF_SPARKY_URL] = "invalid_sparky_url"
+
+        api_key = user_input.get(CONF_SPARKY_API_KEY) or (existing_data or {}).get(
+            CONF_SPARKY_API_KEY
+        )
+        if not isinstance(api_key, str) or not api_key.strip():
+            errors[CONF_SPARKY_API_KEY] = "missing_sparky_api_key"
+        elif "\r" in api_key or "\n" in api_key:
+            errors[CONF_SPARKY_API_KEY] = "invalid_sparky_api_key"
+
+    return errors
+
+
+def _connection_errors(user_input: dict[str, Any]) -> dict[str, str]:
+    errors: dict[str, str] = {}
     user_id = user_input.get(CONF_USER_ID)
     if isinstance(user_id, bool) or not isinstance(user_id, (int, float)):
         errors[CONF_USER_ID] = "invalid_user_id"
@@ -146,19 +219,84 @@ def _profile_errors(user_input: dict[str, Any], today: date | None = None) -> di
 
     if not isinstance(user_input.get(CONF_ALLOW_BIND), bool):
         errors[CONF_ALLOW_BIND] = "invalid_allow_bind"
-
     return errors
 
 
-def _profile_data(user_input: dict[str, Any]) -> dict[str, Any]:
+def _connection_data(user_input: dict[str, Any]) -> dict[str, Any]:
     return {
+        CONF_USER_ID: int(user_input[CONF_USER_ID]),
+        CONF_ALLOW_BIND: user_input[CONF_ALLOW_BIND],
+    }
+
+
+def _person_entity_id(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        entity_id = cv.entity_id(value)
+    except probatio.Invalid:
+        return None
+    return entity_id if split_entity_id(entity_id)[0] == "person" else None
+
+
+def _profile_name(value: Any) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
+
+
+def _profile_name_errors(
+    name: str,
+    subentries: Mapping[str, Any],
+    exclude_subentry_id: str | None = None,
+) -> dict[str, str]:
+    normalized_name = name.casefold()
+    for subentry in subentries.values():
+        if (
+            subentry.subentry_type == SUBENTRY_PROFILE
+            and subentry.subentry_id != exclude_subentry_id
+            and isinstance(subentry.title, str)
+            and subentry.title.strip().casefold() == normalized_name
+        ):
+            return {CONF_NAME: "duplicate_profile_name"}
+    return {}
+
+
+def _initial_errors(user_input: dict[str, Any]) -> dict[str, str]:
+    errors = _profile_errors(user_input)
+    errors.update(_connection_errors(user_input))
+    if _profile_name(user_input.get(CONF_NAME)) is None:
+        errors[CONF_NAME] = "invalid_name"
+    return errors
+
+
+def _profile_data(
+    user_input: dict[str, Any],
+    *,
+    legacy_profile: bool = False,
+    existing_data: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    data = {
         CONF_BIRTH_DATE: _as_date(user_input[CONF_BIRTH_DATE]).isoformat(),
         CONF_HEIGHT: int(user_input[CONF_HEIGHT]),
         CONF_SEX: user_input[CONF_SEX],
         CONF_INITIAL_WEIGHT: float(user_input[CONF_INITIAL_WEIGHT]),
-        CONF_USER_ID: int(user_input[CONF_USER_ID]),
-        CONF_ALLOW_BIND: user_input[CONF_ALLOW_BIND],
+        CONF_SPARKY_ENABLED: user_input.get(CONF_SPARKY_ENABLED, False),
+        CONF_LEGACY_PROFILE: legacy_profile,
     }
+    if person := _person_entity_id(user_input.get(CONF_PERSON)):
+        data[CONF_PERSON] = person
+
+    sparky_url = user_input.get(CONF_SPARKY_URL) or (existing_data or {}).get(CONF_SPARKY_URL)
+    if isinstance(sparky_url, str) and sparky_url.strip():
+        data[CONF_SPARKY_URL] = (
+            normalize_base_url(sparky_url) if data[CONF_SPARKY_ENABLED] else sparky_url.strip()
+        )
+
+    api_key = user_input.get(CONF_SPARKY_API_KEY) or (existing_data or {}).get(CONF_SPARKY_API_KEY)
+    if isinstance(api_key, str) and api_key.strip():
+        data[CONF_SPARKY_API_KEY] = api_key.strip()
+    return data
 
 
 def _device_schema(devices: dict[str, str]) -> probatio.Schema:
@@ -185,7 +323,14 @@ def _device_schema(devices: dict[str, str]) -> probatio.Schema:
 class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a Huawei AH100 scale."""
 
-    VERSION = 1
+    VERSION = 2
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        return {SUBENTRY_PROFILE: HuaweiAH100ProfileFlow}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         await bluetooth.async_request_active_scan(self.hass)
@@ -237,7 +382,7 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             address = _normalize_address(user_input.get(CONF_ADDRESS))
             if address is None:
                 errors[CONF_ADDRESS] = "invalid_mac"
-            errors.update(_profile_errors(user_input))
+            errors.update(_initial_errors(user_input))
 
             if not errors:
                 return await self._async_create_entry(address, user_input)
@@ -249,9 +394,18 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         await self.async_set_unique_id(address, raise_on_progress=False)
         self._abort_if_unique_id_configured()
+        name = _profile_name(user_input[CONF_NAME])
         return self.async_create_entry(
             title=NAME,
-            data={CONF_ADDRESS: address, **_profile_data(user_input)},
+            data={CONF_ADDRESS: address, **_connection_data(user_input)},
+            subentries=[
+                {
+                    "subentry_type": SUBENTRY_PROFILE,
+                    "data": _profile_data(user_input, legacy_profile=True),
+                    "title": name,
+                    "unique_id": "primary",
+                }
+            ],
         )
 
     async def async_step_bluetooth(
@@ -261,7 +415,7 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             address = getattr(self, "_bluetooth_address", None)
             if address is None:
                 return self.async_abort(reason="invalid_address")
-            errors = _profile_errors(discovery_info)
+            errors = _initial_errors(discovery_info)
             if errors:
                 return self.async_show_form(
                     step_id="bluetooth", data_schema=BLUETOOTH_SCHEMA, errors=errors
@@ -291,19 +445,107 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
         return HuaweiAH100OptionsFlow()
 
 
+class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        entry = self._get_entry()
+        profile_count = len(entry.get_subentries_of_type(SUBENTRY_PROFILE))
+        name_default = f"Profile {profile_count + 1}"
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            name = _profile_name(user_input.get(CONF_NAME))
+            errors = _profile_errors(user_input)
+            if name is None:
+                errors[CONF_NAME] = "invalid_name"
+            else:
+                errors.update(_profile_name_errors(name, entry.subentries))
+
+            if not errors:
+                return self.async_create_entry(
+                    title=name,
+                    data=_profile_data(user_input, legacy_profile=False),
+                    unique_id=None,
+                )
+
+        suggestions = dict(user_input or {})
+        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(
+                _profile_schema(name_default=name_default), suggestions
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            name = _profile_name(user_input.get(CONF_NAME))
+            errors = _profile_errors(user_input, existing_data=subentry.data)
+            if name is None:
+                errors[CONF_NAME] = "invalid_name"
+            else:
+                errors.update(
+                    _profile_name_errors(
+                        name,
+                        entry.subentries,
+                        exclude_subentry_id=subentry.subentry_id,
+                    )
+                )
+
+            if not errors:
+                return self.async_update_and_abort(
+                    entry,
+                    subentry,
+                    data=_profile_data(
+                        user_input,
+                        legacy_profile=subentry.data.get(CONF_LEGACY_PROFILE, False),
+                        existing_data=subentry.data,
+                    ),
+                    title=name,
+                )
+
+        suggestions = {**subentry.data, CONF_NAME: subentry.title}
+        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        suggestions.update(user_input or {})
+        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(PROFILE_SCHEMA, suggestions),
+            errors=errors,
+        )
+
+
 class HuaweiAH100OptionsFlow(OptionsFlow):
-    """Update the Huawei AH100 user profile and pairing preference."""
+    """Update the shared scale connection settings."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            errors = _profile_errors(user_input)
+            errors = _connection_errors(user_input)
             if not errors:
-                return self.async_create_entry(title="", data=_profile_data(user_input))
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        **self.config_entry.options,
+                        **_connection_data(user_input),
+                    },
+                )
 
         suggestions = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(
             step_id="init",
-            data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, suggestions),
+            data_schema=self.add_suggested_values_to_schema(
+                OPTIONS_SCHEMA,
+                {
+                    CONF_USER_ID: suggestions.get(CONF_USER_ID, 1),
+                    CONF_ALLOW_BIND: suggestions.get(CONF_ALLOW_BIND, False),
+                },
+            ),
             errors=errors,
         )

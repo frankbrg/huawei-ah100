@@ -27,13 +27,15 @@ The second header byte is a protocol length field; the third is the opcode. Payl
 
 1. The scale wakes with notification opcode `0x00`.
 2. The integration sends authentication command `0x24` for the configured user ID and waits for status opcode `0x26`.
-3. Pairing command `0x25` is sent only when the user explicitly enables pairing in the config flow. It is not part of the default authentication path.
+3. Pairing command `0x25` is sent only when the user explicitly enables it in the shared connection settings and normal authentication is rejected. It is not part of the default authentication path.
 4. After authentication, the integration configures kilograms, synchronizes the clock, and sends the configured user profile. A user-change notification (`0x20`) can trigger a profile refresh.
 5. A valid live measurement is decoded and acknowledged with command `0x13` and payload `00`. History records are not acknowledged as live measurements.
 
 The profile's initial weight is a scale-configuration hint, not a Home Assistant measurement. Once a live reading exists, that actual reading can be used as the next profile hint.
 
 The integration does not issue factory-reset or delete commands. It does not enumerate possible user IDs or request history records.
+
+The wire-level `user_id` is one setting on the physical scale config entry and is shared by all Home Assistant profiles. A profile selects the demographic fields sent to the scale; switching profiles does not change the wire user ID or rebind the scale.
 
 ## Notifications
 

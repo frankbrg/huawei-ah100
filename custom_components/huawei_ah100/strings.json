@@ -13,35 +13,51 @@
       "invalid_birth_date": "Enter a valid date in YYYY-MM-DD format.",
       "invalid_height": "Height must be between 1 and 255 cm.",
       "invalid_mac": "Enter a valid Bluetooth MAC address.",
+      "invalid_name": "Enter a profile name.",
+      "invalid_person": "Select a valid Home Assistant person.",
       "invalid_sex": "Choose male or female.",
-      "invalid_user_id": "The user ID must be from 0 to 255.",
+      "invalid_sparky_api_key": "The API key cannot contain line breaks.",
+      "invalid_sparky_enabled": "Choose whether SparkyFitness sync is enabled.",
+      "invalid_sparky_url": "Enter a valid SparkyFitness server root URL.",
+      "invalid_user_id": "The scale user ID must be from 0 to 255.",
       "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
+      "missing_sparky_api_key": "Enter an API key for the selected SparkyFitness account.",
       "user_id_not_integer": "The user ID must be a whole number."
     },
     "step": {
       "bluetooth": {
+        "title": "Set up the discovered Huawei AH100",
+        "description": "Set up the first profile and shared scale connection options below. After submitting, close Huawei Health, weigh barefoot, and stand still until the scale finishes. Sensors populate after Home Assistant receives an actual measurement.",
         "data": {
-          "allow_bind": "Allow pairing or binding",
+          "name": "Profile name",
           "birth_date": "Birth date (YYYY-MM-DD)",
           "height_cm": "Height (cm)",
-          "initial_weight_kg": "Initial weight hint (kg)",
           "sex": "Sex",
-          "user_id": "Scale user ID"
+          "initial_weight_kg": "Initial weight hint (kg)",
+          "person_entity_id": "Home Assistant person (optional)",
+          "sparky_enabled": "Send new measurements to SparkyFitness",
+          "sparky_url": "SparkyFitness server URL",
+          "sparky_api_key": "SparkyFitness API key",
+          "user_id": "Scale user ID",
+          "allow_bind": "Allow pairing or binding"
         },
         "data_description": {
-          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
+          "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
           "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
           "height_cm": "Enter the profile user’s height in whole centimeters.",
-          "sex": "Select the profile user’s sex.",
-          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
-          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot."
-        },
-        "description": "Enter the profile values below. After submitting, close Huawei Health, step onto the scale barefoot, and stand still until the weighing finishes. Sensors populate after Home Assistant receives an actual measurement.",
-        "title": "Set up the discovered Huawei AH100"
+          "sex": "Choose the profile user’s sex.",
+          "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
+          "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
+          "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
+          "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+          "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
+          "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
+          "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
+        }
       },
       "user": {
         "title": "Find a nearby Huawei scale",
-        "description": "No nearby connectable CH100 scale was found. Close Huawei Health on nearby phones, wake the scale by stepping on it, and retry the search, or enter its Bluetooth MAC address manually.",
+        "description": "No nearby connectable CH100 scale was found. Wake the scale and retry, or choose Manual setup to enter its Bluetooth MAC address.",
         "menu_options": {
           "scan_again": "Retry search",
           "manual": "Manual setup"
@@ -49,68 +65,63 @@
       },
       "select_device": {
         "title": "Choose a nearby Huawei scale",
-        "description": "Close Huawei Health on nearby phones and wake the scale by stepping on it while Home Assistant searches. Select the nearby CH100 scale.",
+        "description": "Close Huawei Health on nearby phones and briefly step on the scale to wake it. Select the connectable CH100 scale.",
         "data": {
           "address": "Nearby CH100 scale"
         }
       },
       "manual": {
         "title": "Add a Huawei AH100 scale manually",
-        "description": "Enter the scale Bluetooth MAC address and profile values. After submitting, close Huawei Health, step onto the scale barefoot, and stand still until the weighing finishes. Sensors populate after Home Assistant receives an actual measurement.",
+        "description": "Enter the scale Bluetooth MAC address, then set up the first profile and shared connection options. After submitting, close Huawei Health, weigh barefoot, and stand still until the scale finishes. Sensors populate after Home Assistant receives an actual measurement.",
         "data": {
           "address": "Bluetooth MAC address",
-          "allow_bind": "Allow pairing or binding",
+          "name": "Profile name",
           "birth_date": "Birth date (YYYY-MM-DD)",
           "height_cm": "Height (cm)",
-          "initial_weight_kg": "Initial weight hint (kg)",
           "sex": "Sex",
-          "user_id": "Scale user ID"
+          "initial_weight_kg": "Initial weight hint (kg)",
+          "person_entity_id": "Home Assistant person (optional)",
+          "sparky_enabled": "Send new measurements to SparkyFitness",
+          "sparky_url": "SparkyFitness server URL",
+          "sparky_api_key": "SparkyFitness API key",
+          "user_id": "Scale user ID",
+          "allow_bind": "Allow pairing or binding"
         },
         "data_description": {
-          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
+          "address": "Enter the scale Bluetooth MAC address only for manual setup.",
+          "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
           "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
           "height_cm": "Enter the profile user’s height in whole centimeters.",
-          "sex": "Select the profile user’s sex.",
-          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
-          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot.",
-          "address": "Enter the scale Bluetooth MAC address only when using manual setup."
+          "sex": "Choose the profile user’s sex.",
+          "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
+          "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
+          "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
+          "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+          "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
+          "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
+          "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
         }
       }
     }
   },
   "options": {
     "error": {
-      "age_out_of_range": "The profile age must be 127 or younger.",
-      "future_birth_date": "The birth date cannot be in the future.",
-      "height_not_integer": "Enter height as a whole number of centimeters.",
       "invalid_allow_bind": "Choose whether pairing is allowed.",
-      "invalid_birth_date": "Enter a valid date in YYYY-MM-DD format.",
-      "invalid_height": "Height must be between 1 and 255 cm.",
-      "invalid_sex": "Choose male or female.",
-      "invalid_user_id": "The user ID must be from 0 to 255.",
-      "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
+      "invalid_user_id": "The scale user ID must be from 0 to 255.",
       "user_id_not_integer": "The user ID must be a whole number."
     },
     "step": {
       "init": {
+        "title": "Scale connection options",
+        "description": "These settings apply to every profile on this physical scale.",
         "data": {
-          "allow_bind": "Allow pairing or binding",
-          "birth_date": "Birth date (YYYY-MM-DD)",
-          "height_cm": "Height (cm)",
-          "initial_weight_kg": "Initial weight hint (kg)",
-          "sex": "Sex",
-          "user_id": "Scale user ID"
+          "user_id": "Scale user ID",
+          "allow_bind": "Allow pairing or binding"
         },
         "data_description": {
-          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
-          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
-          "height_cm": "Enter the profile user’s height in whole centimeters.",
-          "sex": "Select the profile user’s sex.",
-          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
-          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot."
-        },
-        "description": "Update the scale user profile. Pairing remains off unless you enable it.",
-        "title": "Huawei AH100 options"
+          "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
+          "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
+        }
       }
     }
   },
@@ -127,6 +138,20 @@
       },
       "weight": {
         "name": "Weight"
+      },
+      "sparky_sync": {
+        "name": "SparkyFitness sync",
+        "state": {
+          "disabled": "Disabled",
+          "pending": "Pending",
+          "synced": "Synced",
+          "error": "Error"
+        }
+      }
+    },
+    "select": {
+      "active_profile": {
+        "name": "Active profile"
       }
     }
   },
@@ -140,6 +165,85 @@
     "nearby_scale": {
       "options": {
         "manual": "Manual setup"
+      }
+    }
+  },
+  "config_subentries": {
+    "profile": {
+      "entry_type": "scale profile",
+      "initiate_flow": {
+        "user": "Add profile",
+        "reconfigure": "Edit profile"
+      },
+      "step": {
+        "user": {
+          "title": "Add scale profile",
+          "description": "Create a separate profile for one scale user. Select it as active before weighing.",
+          "data": {
+            "name": "Profile name",
+            "birth_date": "Birth date (YYYY-MM-DD)",
+            "height_cm": "Height (cm)",
+            "sex": "Sex",
+            "initial_weight_kg": "Initial weight hint (kg)",
+            "person_entity_id": "Home Assistant person (optional)",
+            "sparky_enabled": "Send new measurements to SparkyFitness",
+            "sparky_url": "SparkyFitness server URL",
+            "sparky_api_key": "SparkyFitness API key"
+          },
+          "data_description": {
+            "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
+            "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+            "height_cm": "Enter the profile user’s height in whole centimeters.",
+            "sex": "Choose the profile user’s sex.",
+            "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
+            "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
+            "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
+            "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit scale profile",
+          "description": "Update this profile’s settings. Select it as active before weighing.",
+          "data": {
+            "name": "Profile name",
+            "birth_date": "Birth date (YYYY-MM-DD)",
+            "height_cm": "Height (cm)",
+            "sex": "Sex",
+            "initial_weight_kg": "Initial weight hint (kg)",
+            "person_entity_id": "Home Assistant person (optional)",
+            "sparky_enabled": "Send new measurements to SparkyFitness",
+            "sparky_url": "SparkyFitness server URL",
+            "sparky_api_key": "SparkyFitness API key"
+          },
+          "data_description": {
+            "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
+            "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+            "height_cm": "Enter the profile user’s height in whole centimeters.",
+            "sex": "Choose the profile user’s sex.",
+            "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
+            "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
+            "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
+            "sparky_url": "Enter the server root only, such as https://fitness.example.com. Do not add an API path.",
+            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it."
+          }
+        }
+      },
+      "error": {
+        "age_out_of_range": "The profile age must be 127 or younger.",
+        "future_birth_date": "The birth date cannot be in the future.",
+        "height_not_integer": "Enter height as a whole number of centimeters.",
+        "invalid_birth_date": "Enter a valid date in YYYY-MM-DD format.",
+        "invalid_height": "Height must be between 1 and 255 cm.",
+        "invalid_name": "Enter a profile name.",
+        "invalid_person": "Select a valid Home Assistant person.",
+        "invalid_sex": "Choose male or female.",
+        "invalid_sparky_api_key": "The API key cannot contain line breaks.",
+        "invalid_sparky_enabled": "Choose whether SparkyFitness sync is enabled.",
+        "invalid_sparky_url": "Enter a valid SparkyFitness server root URL.",
+        "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
+        "missing_sparky_api_key": "Enter an API key for the selected SparkyFitness account.",
+        "duplicate_profile_name": "A profile with this name already exists."
       }
     }
   }

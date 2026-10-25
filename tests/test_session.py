@@ -473,3 +473,141 @@ async def test_idle_timeout_disconnect_and_cancellation_release_subscription() -
     with pytest.raises(asyncio.CancelledError):
         await cancelled
     assert cancelled_client.stopped == [session.RX_UUID]
+
+
+async def test_graceful_stop_exits_idle_session_without_waiting_for_idle_timeout() -> None:
+    client = FakeClient()
+    stop = asyncio.Event()
+    task = await start_session(client, ignore_measurement, wake=False, stop_event=stop)
+    stop.set()
+    await asyncio.wait_for(task, 0.1)
+    assert not client.writes
+    assert client.stopped == [session.RX_UUID]
+
+
+async def test_graceful_stop_preserves_awake_weighing_save_and_ack_until_sleep() -> None:
+    client = FakeClient()
+    stop = asyncio.Event()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    saved = []
+
+    async def save(measurement):
+        entered.set()
+        await release.wait()
+        saved.append(measurement["weight_kg"])
+
+    task = await start_session(client, save, stop_event=stop)
+    await wait_until(lambda: client.count(0x09) == 1)
+    stop.set()
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    client.emit_frame(measurement_frame())
+    await asyncio.wait_for(entered.wait(), 1)
+    assert client.count(0x13) == 0
+    release.set()
+    await wait_until(lambda: client.count(0x13) == 1)
+    assert not task.done()
+    await finish_session(client, task)
+    assert saved == [73.4]
+
+
+async def test_graceful_stop_drains_sleeping_save_and_ignores_another_wake() -> None:
+    client = FakeClient()
+    stop = asyncio.Event()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    completed = asyncio.Event()
+
+    async def save(_measurement):
+        entered.set()
+        await release.wait()
+        completed.set()
+
+    task = await start_session(client, save, stop_event=stop)
+    await wait_until(lambda: client.count(0x09) == 1)
+    client.emit_frame(measurement_frame())
+    await asyncio.wait_for(entered.wait(), 1)
+    stop.set()
+    client.emit(0x01)
+    client.emit(0x00)
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    assert client.count(0x24) == 1
+    release.set()
+    await asyncio.wait_for(task, 1)
+    assert completed.is_set()
+    assert client.count(0x13) == 0
+
+
+async def test_force_cancel_drains_an_in_progress_durable_measurement() -> None:
+    client = FakeClient()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    completed = asyncio.Event()
+
+    async def save(_measurement):
+        entered.set()
+        await release.wait()
+        completed.set()
+
+    task = await start_session(client, save)
+    await wait_until(lambda: client.count(0x09) == 1)
+    client.emit_frame(measurement_frame())
+    await asyncio.wait_for(entered.wait(), 1)
+    task.cancel()
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert completed.is_set()
+    assert client.count(0x13) == 0
+    assert client.stopped == [session.RX_UUID]
+
+
+async def test_graceful_stop_keeps_hard_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(session, "HARD_SESSION_TIMEOUT_SECONDS", 0.04)
+    client = FakeClient()
+    stop = asyncio.Event()
+    task = await start_session(client, ignore_measurement, stop_event=stop, session_timeout=0.01)
+    await wait_until(lambda: client.count(0x09) == 1)
+    stop.set()
+    with pytest.raises(TimeoutError, match="maximum duration"):
+        await task
+    assert client.stopped == [session.RX_UUID]
+
+
+async def test_session_copies_profile_before_awaiting_client() -> None:
+    client = FakeClient()
+    source_profile = dict(PROFILE)
+    task = await start_session(client, ignore_measurement, profile=source_profile, wake=False)
+    source_profile["height_cm"] = 100
+    source_profile["sex"] = "male"
+    client.emit(0x00)
+    await wait_until(lambda: client.count(0x09) == 1)
+    info = next(frame for frame in client.writes if frame[2] == 0x09)
+    assert user_info_payload(info)[8:10] == bytes((180, 0))
+    await finish_session(client, task)
+
+
+async def test_graceful_stop_preserves_sleep_grace_for_a_late_measurement(monkeypatch):
+    monkeypatch.setattr(session, "SLEEP_GRACE_SECONDS", 0.04)
+    client = FakeClient()
+    stop = asyncio.Event()
+    saved = []
+
+    async def save(measurement):
+        saved.append(measurement["weight_kg"])
+
+    task = await start_session(client, save, stop_event=stop)
+    await wait_until(lambda: client.count(0x09) == 1)
+    stop.set()
+    client.emit(0x01)
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    client.emit_frame(measurement_frame())
+    await asyncio.wait_for(task, 1)
+    assert saved == [73.4]
+    assert client.count(0x13) == 0
+    assert client.stopped == [session.RX_UUID]

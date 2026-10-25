@@ -13,35 +13,51 @@
       "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
       "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
       "invalid_mac": "Saisissez une adresse MAC Bluetooth valide.",
+      "invalid_name": "Saisissez un nom de profil.",
+      "invalid_person": "Sélectionnez une personne Home Assistant valide.",
       "invalid_sex": "Choisissez homme ou femme.",
-      "invalid_user_id": "L’identifiant utilisateur doit être compris entre 0 et 255.",
+      "invalid_sparky_api_key": "La clé API ne peut pas contenir de retours à la ligne.",
+      "invalid_sparky_enabled": "Choisissez si la synchronisation SparkyFitness est activée.",
+      "invalid_sparky_url": "Saisissez une URL racine valide pour le serveur SparkyFitness.",
+      "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
       "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
+      "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
       "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
     },
     "step": {
       "bluetooth": {
+        "title": "Configurer la Huawei AH100 détectée",
+        "description": "Configurez ci-dessous le premier profil et les options de connexion partagées. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "data": {
-          "allow_bind": "Autoriser l’association",
+          "name": "Nom du profil",
           "birth_date": "Date de naissance (JJ/MM/AAAA)",
           "height_cm": "Taille (cm)",
-          "initial_weight_kg": "Poids initial indicatif (kg)",
           "sex": "Sexe",
-          "user_id": "Identifiant utilisateur de la balance"
+          "initial_weight_kg": "Poids initial indicatif (kg)",
+          "person_entity_id": "Personne Home Assistant (facultatif)",
+          "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
+          "sparky_url": "URL du serveur SparkyFitness",
+          "sparky_api_key": "Clé API SparkyFitness",
+          "user_id": "Identifiant utilisateur de la balance",
+          "allow_bind": "Autoriser l’association"
         },
         "data_description": {
-          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
           "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance."
-        },
-        "description": "Saisissez les valeurs du profil ci-dessous. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
-        "title": "Configurer la Huawei AH100 détectée"
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
+          "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+          "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
+          "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
+          "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
+        }
       },
       "user": {
         "title": "Rechercher une balance Huawei à proximité",
-        "description": "Aucune balance CH100 connectable n’a été détectée à proximité. Fermez Huawei Health sur les téléphones proches, réveillez la balance en montant dessus, puis relancez la recherche ou saisissez son adresse MAC Bluetooth manuellement.",
+        "description": "Aucune balance CH100 connectable n’a été détectée à proximité. Réveillez la balance puis relancez la recherche, ou choisissez Configuration manuelle pour saisir son adresse MAC Bluetooth.",
         "menu_options": {
           "scan_again": "Relancer la recherche",
           "manual": "Configuration manuelle"
@@ -49,68 +65,63 @@
       },
       "select_device": {
         "title": "Choisir une balance Huawei à proximité",
-        "description": "Fermez Huawei Health sur les téléphones proches et réveillez la balance en montant dessus pendant la recherche Home Assistant. Sélectionnez la balance CH100 détectée.",
+        "description": "Fermez Huawei Health sur les téléphones proches et montez brièvement sur la balance pour la réveiller. Sélectionnez la balance CH100 connectable.",
         "data": {
           "address": "Balance CH100 à proximité"
         }
       },
       "manual": {
         "title": "Ajouter une balance Huawei AH100 manuellement",
-        "description": "Saisissez l’adresse MAC Bluetooth de la balance et les valeurs du profil. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
+        "description": "Saisissez l’adresse MAC Bluetooth de la balance, puis configurez le premier profil et les options de connexion partagées. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "data": {
           "address": "Adresse MAC Bluetooth",
-          "allow_bind": "Autoriser l’association",
+          "name": "Nom du profil",
           "birth_date": "Date de naissance (JJ/MM/AAAA)",
           "height_cm": "Taille (cm)",
-          "initial_weight_kg": "Poids initial indicatif (kg)",
           "sex": "Sexe",
-          "user_id": "Identifiant utilisateur de la balance"
+          "initial_weight_kg": "Poids initial indicatif (kg)",
+          "person_entity_id": "Personne Home Assistant (facultatif)",
+          "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
+          "sparky_url": "URL du serveur SparkyFitness",
+          "sparky_api_key": "Clé API SparkyFitness",
+          "user_id": "Identifiant utilisateur de la balance",
+          "allow_bind": "Autoriser l’association"
         },
         "data_description": {
-          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "address": "Saisissez l’adresse MAC Bluetooth de la balance uniquement pour la configuration manuelle.",
+          "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
           "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance.",
-          "address": "Saisissez l’adresse MAC Bluetooth de la balance uniquement pour la configuration manuelle."
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
+          "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+          "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
+          "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
+          "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
         }
       }
     }
   },
   "options": {
     "error": {
-      "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
-      "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
-      "height_not_integer": "Saisissez une taille entière en centimètres.",
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
-      "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
-      "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
-      "invalid_sex": "Choisissez homme ou femme.",
-      "invalid_user_id": "L’identifiant utilisateur doit être compris entre 0 et 255.",
-      "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
+      "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
       "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
     },
     "step": {
       "init": {
+        "title": "Options de connexion de la balance",
+        "description": "Ces réglages s’appliquent à tous les profils de cette balance physique.",
         "data": {
-          "allow_bind": "Autoriser l’association",
-          "birth_date": "Date de naissance (JJ/MM/AAAA)",
-          "height_cm": "Taille (cm)",
-          "initial_weight_kg": "Poids initial indicatif (kg)",
-          "sex": "Sexe",
-          "user_id": "Identifiant utilisateur de la balance"
+          "user_id": "Identifiant utilisateur de la balance",
+          "allow_bind": "Autoriser l’association"
         },
         "data_description": {
-          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
-          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
-          "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
-          "sex": "Choisissez le sexe de la personne du profil.",
-          "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance."
-        },
-        "description": "Modifiez le profil utilisateur de la balance. L’association reste désactivée sauf si vous l’activez.",
-        "title": "Options Huawei AH100"
+          "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
+          "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
+        }
       }
     }
   },
@@ -127,6 +138,20 @@
       },
       "weight": {
         "name": "Poids"
+      },
+      "sparky_sync": {
+        "name": "Synchronisation SparkyFitness",
+        "state": {
+          "disabled": "Désactivée",
+          "pending": "En attente",
+          "synced": "Synchronisée",
+          "error": "Erreur"
+        }
+      }
+    },
+    "select": {
+      "active_profile": {
+        "name": "Profil actif"
       }
     }
   },
@@ -140,6 +165,85 @@
     "nearby_scale": {
       "options": {
         "manual": "Configuration manuelle"
+      }
+    }
+  },
+  "config_subentries": {
+    "profile": {
+      "entry_type": "profil de balance",
+      "initiate_flow": {
+        "user": "Ajouter un profil",
+        "reconfigure": "Modifier le profil"
+      },
+      "step": {
+        "user": {
+          "title": "Ajouter un profil de balance",
+          "description": "Créez un profil distinct pour une personne. Sélectionnez-le comme profil actif avant la pesée.",
+          "data": {
+            "name": "Nom du profil",
+            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "height_cm": "Taille (cm)",
+            "sex": "Sexe",
+            "initial_weight_kg": "Poids initial indicatif (kg)",
+            "person_entity_id": "Personne Home Assistant (facultatif)",
+            "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
+            "sparky_url": "URL du serveur SparkyFitness",
+            "sparky_api_key": "Clé API SparkyFitness"
+          },
+          "data_description": {
+            "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
+            "sex": "Choisissez le sexe de la personne du profil.",
+            "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
+            "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil."
+          }
+        },
+        "reconfigure": {
+          "title": "Modifier le profil de balance",
+          "description": "Modifiez les réglages de ce profil. Sélectionnez-le comme profil actif avant la pesée.",
+          "data": {
+            "name": "Nom du profil",
+            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "height_cm": "Taille (cm)",
+            "sex": "Sexe",
+            "initial_weight_kg": "Poids initial indicatif (kg)",
+            "person_entity_id": "Personne Home Assistant (facultatif)",
+            "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
+            "sparky_url": "URL du serveur SparkyFitness",
+            "sparky_api_key": "Clé API SparkyFitness"
+          },
+          "data_description": {
+            "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
+            "sex": "Choisissez le sexe de la personne du profil.",
+            "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
+            "sparky_url": "Saisissez uniquement l’URL racine du serveur, par exemple https://fitness.example.com. N’ajoutez pas de chemin d’API.",
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas."
+          }
+        }
+      },
+      "error": {
+        "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
+        "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
+        "height_not_integer": "Saisissez une taille entière en centimètres.",
+        "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
+        "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
+        "invalid_name": "Saisissez un nom de profil.",
+        "invalid_person": "Sélectionnez une personne Home Assistant valide.",
+        "invalid_sex": "Choisissez homme ou femme.",
+        "invalid_sparky_api_key": "La clé API ne peut pas contenir de retours à la ligne.",
+        "invalid_sparky_enabled": "Choisissez si la synchronisation SparkyFitness est activée.",
+        "invalid_sparky_url": "Saisissez une URL racine valide pour le serveur SparkyFitness.",
+        "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
+        "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
+        "duplicate_profile_name": "Un profil portant ce nom existe déjà."
       }
     }
   }

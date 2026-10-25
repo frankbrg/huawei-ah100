@@ -32,6 +32,7 @@ async def run_session(
     user_id: int = 1,
     now: datetime,
     session_timeout: float = 120.0,
+    stop_event: asyncio.Event | None = None,
 ) -> None:
     if isinstance(user_id, bool) or not isinstance(user_id, int) or not 0 <= user_id <= 255:
         raise ValueError("user ID must be an integer from 0 to 255")
@@ -41,7 +42,15 @@ async def run_session(
     if len(mac) != 6:
         raise ValueError("address must contain six octets")
     session = _Session(
-        client, mac, profile, on_measurement, allow_bind, user_id, now, session_timeout
+        client,
+        mac,
+        dict(profile),
+        on_measurement,
+        allow_bind,
+        user_id,
+        now,
+        session_timeout,
+        stop_event,
     )
     await session.run()
 
@@ -57,6 +66,7 @@ class _Session:
         user_id: int,
         now: datetime,
         session_timeout: float,
+        stop_event: asyncio.Event | None,
     ) -> None:
         self._client = client
         self._mac = mac
@@ -74,6 +84,7 @@ class _Session:
         latest_weight = profile.get("latest_weight_kg")
         self._weight = profile["initial_weight_kg"] if latest_weight is None else latest_weight
         self._session_timeout = session_timeout
+        self._stop_event = stop_event
         self._awake = False
         self._authenticated = False
         self._configured = False
@@ -145,6 +156,8 @@ class _Session:
             return
         opcode = parsed["opcode"]
         if opcode == 0x00 and not self._awake:
+            if self._stop_event is not None and self._stop_event.is_set():
+                return
             self._wake_id += 1
             self._awake = True
             self._authenticated = False
@@ -304,9 +317,15 @@ class _Session:
                 signature = str(measurement["raw_decrypted_hex"])
                 if signature not in self._saved_measurements:
                     self._weight = measurement["weight_kg"]
-                    await self._on_measurement(measurement)
+                    save = asyncio.create_task(self._on_measurement(measurement))
+                    try:
+                        await asyncio.shield(save)
+                    except asyncio.CancelledError:
+                        await save
+                        raise
                     self._saved_measurements.add(signature)
                 if self._active():
+                    # Wait for durable storage above before telling the scale it may discard the reading.
                     await self._write_command(0x13, b"\x00")
             finally:
                 self._pending_measurements -= 1
@@ -331,6 +350,14 @@ class _Session:
                 self._stop_at = current_time + SLEEP_GRACE_SECONDS
                 self._sleep_event.set()
             if self._wake_id == 0 and current_time >= idle_deadline:
+                return
+            if (
+                self._stop_event is not None
+                and self._stop_event.is_set()
+                and not self._awake
+                and self._stop_at is None
+                and not self._pending_measurements
+            ):
                 return
             if (
                 self._stop_at is not None
