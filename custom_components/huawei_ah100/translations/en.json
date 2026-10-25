@@ -33,10 +33,27 @@
           "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
           "user_id": "The scale user slot to configure."
         },
-        "description": "Close Huawei Health on nearby phones before setup. No Bluetooth connection is made in this form; an asleep scale is normal.",
+        "description": "Close Huawei Health on nearby phones before setup. Enter the profile values below.",
         "title": "Set up the discovered Huawei AH100"
       },
       "user": {
+        "title": "Find a nearby Huawei scale",
+        "description": "No nearby connectable CH100 scale was found. Close Huawei Health on nearby phones, wake the scale by stepping on it, and retry the search, or enter its Bluetooth MAC address manually.",
+        "menu_options": {
+          "scan_again": "Retry search",
+          "manual": "Manual setup"
+        }
+      },
+      "select_device": {
+        "title": "Choose a nearby Huawei scale",
+        "description": "Close Huawei Health on nearby phones and wake the scale by stepping on it while Home Assistant searches. Select the nearby CH100, or choose Manual setup to enter its MAC address.",
+        "data": {
+          "address": "Nearby CH100 scale"
+        }
+      },
+      "manual": {
+        "title": "Add a Huawei AH100 scale manually",
+        "description": "Close Huawei Health on nearby phones. Enter the scale Bluetooth MAC address and profile values.",
         "data": {
           "address": "Bluetooth MAC address",
           "allow_bind": "Allow pairing or binding",
@@ -47,12 +64,11 @@
           "user_id": "Scale user ID"
         },
         "data_description": {
+          "address": "Use manual setup if the nearby Bluetooth search does not find the scale.",
           "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
           "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
           "user_id": "The scale user slot to configure."
-        },
-        "description": "Close Huawei Health on nearby phones before setup. Enter the scale's Bluetooth MAC address. No Bluetooth connection is made in this form; an asleep scale is normal.",
-        "title": "Add a Huawei AH100 scale"
+        }
       }
     }
   },
@@ -110,6 +126,11 @@
       "options": {
         "female": "Female",
         "male": "Male"
+      }
+    },
+    "nearby_scale": {
+      "options": {
+        "__manual__": "Manual setup"
       }
     }
   }

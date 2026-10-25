@@ -33,10 +33,27 @@
           "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
           "user_id": "Emplacement utilisateur à configurer sur la balance."
         },
-        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Ce formulaire ne se connecte pas en Bluetooth ; la balance peut être en veille.",
+        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Saisissez les valeurs du profil ci-dessous.",
         "title": "Configurer la Huawei AH100 détectée"
       },
       "user": {
+        "title": "Rechercher une balance Huawei à proximité",
+        "description": "Aucune balance CH100 connectable n’a été détectée à proximité. Fermez Huawei Health sur les téléphones proches, réveillez la balance en montant dessus, puis relancez la recherche ou saisissez son adresse MAC Bluetooth manuellement.",
+        "menu_options": {
+          "scan_again": "Relancer la recherche",
+          "manual": "Configuration manuelle"
+        }
+      },
+      "select_device": {
+        "title": "Choisir une balance Huawei à proximité",
+        "description": "Fermez Huawei Health sur les téléphones proches et réveillez la balance en montant dessus pendant la recherche Home Assistant. Sélectionnez la CH100 détectée ou choisissez Configuration manuelle pour saisir son adresse MAC.",
+        "data": {
+          "address": "Balance CH100 à proximité"
+        }
+      },
+      "manual": {
+        "title": "Ajouter une balance Huawei AH100 manuellement",
+        "description": "Fermez Huawei Health sur les téléphones proches. Saisissez l’adresse MAC Bluetooth de la balance, puis les valeurs du profil.",
         "data": {
           "address": "Adresse MAC Bluetooth",
           "allow_bind": "Autoriser l’association",
@@ -47,12 +64,11 @@
           "user_id": "Identifiant utilisateur de la balance"
         },
         "data_description": {
+          "address": "Utilisez la configuration manuelle si la recherche Bluetooth à proximité ne trouve pas la balance.",
           "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
           "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
           "user_id": "Emplacement utilisateur à configurer sur la balance."
-        },
-        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Saisissez l’adresse MAC Bluetooth de la balance. Ce formulaire ne se connecte pas en Bluetooth ; la balance peut être en veille.",
-        "title": "Ajouter une balance Huawei AH100"
+        }
       }
     }
   },
@@ -110,6 +126,11 @@
       "options": {
         "female": "Femme",
         "male": "Homme"
+      }
+    },
+    "nearby_scale": {
+      "options": {
+        "__manual__": "Configuration manuelle"
       }
     }
   }

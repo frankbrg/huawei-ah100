@@ -34,9 +34,9 @@ The configured initial weight is only a hint used when synchronizing the scale's
 - A supported Huawei AH100/CH100 scale and Bluetooth adapter available to Home Assistant.
 - Keep the Huawei Health app disconnected from the scale while setting up or taking measurements. The scale accepts one active Bluetooth central connection at a time.
 
-The local Bluetooth path has been validated. Bluetooth proxies have not been verified. The integration uses Home Assistant's Bluetooth stack, supports manual MAC entry or Home Assistant's passive Bluetooth discovery, and does not start its own active scanner. It does not require MQTT, Docker, a companion service, or a cloud account.
+The local Bluetooth path has been validated; Bluetooth proxies have not been verified. Initial setup asks Home Assistant's Bluetooth stack to actively scan for nearby, connectable CH100 scales and offers a chooser when it finds one. After setup, the integration uses Home Assistant's Bluetooth discovery to detect the scale waking up. Manual MAC entry is available as a fallback. The integration does not require MQTT, Docker, a companion service, or a cloud account.
 
-This is an independent community project and is not affiliated with Huawei. The integration version is **0.1.0**. The repository is **not yet listed in the HACS default catalog**; use the custom-repository button above until a catalog listing is published.
+This is an independent community project and is not affiliated with Huawei. The integration version is **0.1.1**. The request to add the repository to the HACS default catalog is [open and awaiting maintainer review](https://github.com/hacs/default/pull/12666); until it is accepted, add it as a custom repository using the button above.
 
 ## Installation
 
@@ -45,7 +45,7 @@ This is an independent community project and is not affiliated with Huawei. The 
 1. Install [HACS](https://hacs.xyz/docs/use/) if it is not already available in Home Assistant.
 2. Select the HACS button above. If prompted, add `frankbrg/huawei-ah100` as a custom repository with category **Integration**.
 3. Download the integration and restart Home Assistant.
-4. Select the **Add integration** button above, or open **Settings → Devices & services → Add integration** and search for **Huawei AH100**. Home Assistant may also discover a connectable CH100 advertisement and offer the same setup flow.
+4. Select the **Add integration** button above, or open **Settings → Devices & services → Add integration** and search for **Huawei AH100**. The setup flow searches for nearby scales. Home Assistant may also discover a connectable CH100 advertisement and offer setup directly.
 
 ### Manual
 
@@ -55,16 +55,15 @@ This is an independent community project and is not affiliated with Huawei. The 
 
 ## Set up the scale
 
-You can enter the scale's MAC address manually or continue from Home Assistant's Bluetooth discovery when it finds a connectable CH100. Both paths ask for:
+Close Huawei Health on nearby phones and briefly wake the scale by stepping on it while Home Assistant searches. Select the nearby CH100, or choose **Manual setup** to enter its MAC address. Then enter the scale user's profile (birth date, height, sex, initial weight hint, and user ID, which defaults to `1`) and choose whether pairing is allowed. If no scale appears, choose **Retry search** or **Manual setup**.
 
-- The scale's Bluetooth MAC address.
-- Birth date, height, sex, and an initial weight hint for the scale user profile.
-- The scale user ID, which defaults to `1`.
-- Whether pairing is explicitly allowed.
+Some Bluetooth adapters can passively hear advertisements but cannot retrieve the advertised device name needed by the first-time nearby chooser. If that happens, use **Manual setup**. Once the scale is configured, passive Bluetooth scanning is enough for Home Assistant to detect its wake-up advertisement.
 
-Finishing the configuration flow saves the settings; it does not connect to or pair the scale immediately. After setup, step on the scale to wake it and let Home Assistant connect over Bluetooth. The **allow pairing** option is opt-in: when enabled, the integration may send the bind command during a later awake session if normal authentication is rejected. The options flow lets you update the user profile and pairing preference later. No factory-reset or delete commands are used.
+Finishing configuration saves the settings but does not connect to or pair the scale immediately. To take a measurement, close Huawei Health, step on the scale to wake it, and let Home Assistant connect over Bluetooth. The **allow pairing** option is opt-in: when enabled, the integration may send the bind command during a later awake session if normal authentication is rejected. The options flow lets you update the user profile and pairing preference later. No factory-reset or delete commands are used.
 
-Before setup, close Huawei Health on nearby phones and make sure the scale is awake when prompted. Place Home Assistant within reliable Bluetooth range. If Home Assistant reports a connection problem, verify the MAC address and check that no phone or other client is connected to the scale.
+### Troubleshooting discovery and connection
+
+If the nearby chooser is empty, close Huawei Health on nearby phones, bring Home Assistant within reliable Bluetooth range, wake the scale by stepping on it, then select **Retry search**. Check that Home Assistant's Bluetooth adapter is set to **Automatic** or **Active** mode so the initial scan can retrieve the advertised name. A passive-only adapter may not provide that name; choose **Manual setup** and enter the MAC address if the scale still does not appear. After setup, passive scanning is sufficient to detect the scale waking up. If Home Assistant reports a connection problem, verify the MAC address and check that no phone or other client is connected to the scale.
 
 ## Privacy and data handling
 

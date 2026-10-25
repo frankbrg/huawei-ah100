@@ -6,6 +6,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import probatio
+from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
+_MANUAL_DEVICE = "__manual__"
 
 
 def _normalize_address(value: Any) -> str | None:
@@ -152,12 +154,77 @@ def _profile_data(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _device_schema(devices: dict[str, str]) -> probatio.Schema:
+    options = [
+        {"value": address, "label": f"{name.strip()} ({address})"}
+        for address, name in devices.items()
+    ]
+    options.append({"value": _MANUAL_DEVICE, "label": "Manual setup"})
+    return probatio.Schema(
+        {
+            probatio.Required(CONF_ADDRESS): selector(
+                {
+                    "select": {
+                        "options": options,
+                        "mode": "dropdown",
+                        "translation_key": "nearby_scale",
+                    }
+                }
+            )
+        }
+    )
+
+
 class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a Huawei AH100 scale."""
 
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        await bluetooth.async_request_active_scan(self.hass)
+        configured_ids = self._async_current_ids(include_ignore=False)
+        devices: dict[str, str] = {}
+        for discovery in bluetooth.async_discovered_service_info(self.hass, connectable=True):
+            if (
+                not discovery.connectable
+                or not isinstance(discovery.name, str)
+                or not discovery.name.startswith("CH100")
+            ):
+                continue
+            address = _normalize_address(discovery.address)
+            if address is None or address in configured_ids or address in devices:
+                continue
+            devices[address] = discovery.name
+
+        if not devices:
+            return self.async_show_menu(step_id="user", menu_options=["scan_again", "manual"])
+
+        self._discovered_devices = devices
+        return self.async_show_form(step_id="select_device", data_schema=_device_schema(devices))
+
+    async def async_step_scan_again(self) -> ConfigFlowResult:
+        return await self.async_step_user()
+
+    async def async_step_select_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is None:
+            return self.async_abort(reason="invalid_address")
+
+        selected = user_input.get(CONF_ADDRESS)
+        if selected == _MANUAL_DEVICE:
+            return await self.async_step_manual()
+
+        address = _normalize_address(selected)
+        if address is None or address not in getattr(self, "_discovered_devices", {}):
+            return self.async_abort(reason="invalid_address")
+
+        await self.async_set_unique_id(address, raise_on_progress=False)
+        self._abort_if_unique_id_configured()
+        self._bluetooth_address = address
+        return self.async_show_form(step_id="bluetooth", data_schema=BLUETOOTH_SCHEMA)
+
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             address = _normalize_address(user_input.get(CONF_ADDRESS))
@@ -166,14 +233,19 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             errors.update(_profile_errors(user_input))
 
             if not errors:
-                await self.async_set_unique_id(address)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=NAME,
-                    data={CONF_ADDRESS: address, **_profile_data(user_input)},
-                )
+                return await self._async_create_entry(address, user_input)
 
-        return self.async_show_form(step_id="user", data_schema=USER_SCHEMA, errors=errors)
+        return self.async_show_form(step_id="manual", data_schema=USER_SCHEMA, errors=errors)
+
+    async def _async_create_entry(
+        self, address: str, user_input: dict[str, Any]
+    ) -> ConfigFlowResult:
+        await self.async_set_unique_id(address, raise_on_progress=False)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=NAME,
+            data={CONF_ADDRESS: address, **_profile_data(user_input)},
+        )
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak | dict[str, Any] | None = None
@@ -187,10 +259,7 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_show_form(
                     step_id="bluetooth", data_schema=BLUETOOTH_SCHEMA, errors=errors
                 )
-            return self.async_create_entry(
-                title=NAME,
-                data={CONF_ADDRESS: address, **_profile_data(discovery_info)},
-            )
+            return await self._async_create_entry(address, discovery_info)
 
         if discovery_info is None:
             return self.async_abort(reason="invalid_address")
