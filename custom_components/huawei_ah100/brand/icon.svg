@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">Huawei AH100 scale integration icon</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#142b4b"/>
+      <stop offset="1" stop-color="#0b1931"/>
+    </linearGradient>
+    <linearGradient id="display" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#32d3c2"/>
+      <stop offset="1" stop-color="#46b6ed"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#tile)"/>
+  <rect x="49" y="34" width="158" height="188" rx="30" fill="#f5fbff"/>
+  <rect x="74" y="60" width="108" height="48" rx="12" fill="#10233f"/>
+  <path d="M91 85h14l8-13 13 23 10-15h27" fill="none" stroke="url(#display)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M75 144c13-11 29-16 53-16s40 5 53 16M82 165c11-8 26-12 46-12s35 4 46 12M91 184c9-6 21-9 37-9s28 3 37 9" fill="none" stroke="#24bcb2" stroke-width="5" stroke-linecap="round" opacity=".92"/>
+  <circle cx="74" cy="207" r="5" fill="#54c9e9" opacity=".8"/>
+  <circle cx="182" cy="207" r="5" fill="#54c9e9" opacity=".8"/>
+</svg>

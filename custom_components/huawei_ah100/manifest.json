@@ -1,0 +1,16 @@
+{
+  "domain": "huawei_ah100",
+  "name": "Huawei AH100",
+  "bluetooth": [
+    {"local_name": "CH100*", "connectable": true}
+  ],
+  "codeowners": ["@frankbrg"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/frankbrg/huawei-ah100",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/frankbrg/huawei-ah100/issues",
+  "requirements": ["bleak-retry-connector==4.7.1"],
+  "version": "0.1.0"
+}

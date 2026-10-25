@@ -1,0 +1,18 @@
+Huawei AH100 for Home Assistant
+Copyright (C) 2026 Frank Berge and contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+
+The Python wire-protocol implementation in
+custom_components/huawei_ah100/protocol.py is a modified port of openScale's
+HuaweiAhCh100Handler.kt, Copyright (C) 2026 openScale contributors,
+distributed under GPL-3.0-or-later.
+
+Upstream revision: 39a0c5c25a0abc26b8e24c90f36b5a2c6ff07a4a
+Source: https://github.com/oliexdev/openScale/blob/39a0c5c25a0abc26b8e24c90f36b5a2c6ff07a4a/android_app/app/src/main/java/com/health/openscale/core/bluetooth/scales/HuaweiAhCh100Handler.kt
+
+Changes: Kotlin-to-Python port of authentication, frame obfuscation, AES-CTR,
+profile encoding, and first-frame measurement decoding; Home Assistant
+configuration, storage, sensors, and asynchronous BLE lifecycle added.
+
+Huawei and Home Assistant are trademarks of their respective owners.
+This independent community project is not affiliated with Huawei.

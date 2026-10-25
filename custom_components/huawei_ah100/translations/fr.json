@@ -1,0 +1,116 @@
+{
+  "config": {
+    "abort": {
+      "invalid_address": "L’adresse Bluetooth détectée n’est pas valide.",
+      "unsupported_device": "L’appareil Bluetooth détecté n’est pas une balance CH100 connectable.",
+      "already_configured": "Cette balance est déjà configurée."
+    },
+    "error": {
+      "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
+      "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
+      "height_not_integer": "Saisissez une taille entière en centimètres.",
+      "invalid_allow_bind": "Choisissez si l’association est autorisée.",
+      "invalid_birth_date": "Saisissez une date de naissance valide.",
+      "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
+      "invalid_mac": "Saisissez une adresse MAC Bluetooth valide.",
+      "invalid_sex": "Choisissez homme ou femme.",
+      "invalid_user_id": "L’identifiant utilisateur doit être compris entre 0 et 255.",
+      "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
+      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
+    },
+    "step": {
+      "bluetooth": {
+        "data": {
+          "allow_bind": "Autoriser l’association",
+          "birth_date": "Date de naissance",
+          "height_cm": "Taille (cm)",
+          "initial_weight_kg": "Poids initial indicatif (kg)",
+          "sex": "Sexe",
+          "user_id": "Identifiant utilisateur de la balance"
+        },
+        "data_description": {
+          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
+          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
+          "user_id": "Emplacement utilisateur à configurer sur la balance."
+        },
+        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Ce formulaire ne se connecte pas en Bluetooth ; la balance peut être en veille.",
+        "title": "Configurer la Huawei AH100 détectée"
+      },
+      "user": {
+        "data": {
+          "address": "Adresse MAC Bluetooth",
+          "allow_bind": "Autoriser l’association",
+          "birth_date": "Date de naissance",
+          "height_cm": "Taille (cm)",
+          "initial_weight_kg": "Poids initial indicatif (kg)",
+          "sex": "Sexe",
+          "user_id": "Identifiant utilisateur de la balance"
+        },
+        "data_description": {
+          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
+          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
+          "user_id": "Emplacement utilisateur à configurer sur la balance."
+        },
+        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Saisissez l’adresse MAC Bluetooth de la balance. Ce formulaire ne se connecte pas en Bluetooth ; la balance peut être en veille.",
+        "title": "Ajouter une balance Huawei AH100"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
+      "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
+      "height_not_integer": "Saisissez une taille entière en centimètres.",
+      "invalid_allow_bind": "Choisissez si l’association est autorisée.",
+      "invalid_birth_date": "Saisissez une date de naissance valide.",
+      "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
+      "invalid_sex": "Choisissez homme ou femme.",
+      "invalid_user_id": "L’identifiant utilisateur doit être compris entre 0 et 255.",
+      "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
+      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
+    },
+    "step": {
+      "init": {
+        "data": {
+          "allow_bind": "Autoriser l’association",
+          "birth_date": "Date de naissance",
+          "height_cm": "Taille (cm)",
+          "initial_weight_kg": "Poids initial indicatif (kg)",
+          "sex": "Sexe",
+          "user_id": "Identifiant utilisateur de la balance"
+        },
+        "data_description": {
+          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
+          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure.",
+          "user_id": "Emplacement utilisateur à configurer sur la balance."
+        },
+        "description": "Fermez Huawei Health sur les téléphones proches avant d’utiliser la balance. L’association reste désactivée tant que vous ne l’activez pas.",
+        "title": "Options Huawei AH100"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "body_fat": {
+        "name": "Masse grasse"
+      },
+      "impedance": {
+        "name": "Impédance"
+      },
+      "last_measurement": {
+        "name": "Dernière mesure"
+      },
+      "weight": {
+        "name": "Poids"
+      }
+    }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Femme",
+        "male": "Homme"
+      }
+    }
+  }
+}

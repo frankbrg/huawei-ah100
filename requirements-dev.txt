@@ -1,0 +1,8 @@
+homeassistant==2026.10.1
+aiousbwatcher==1.1.2
+serialx==1.11.0
+aiohasupervisor==0.6.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-socket==0.8.1
+ruff==0.17.2

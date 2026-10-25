@@ -1,0 +1,9 @@
+DOMAIN = "huawei_ah100"
+NAME = "Huawei AH100"
+CONF_BIRTH_DATE = "birth_date"
+CONF_HEIGHT = "height_cm"
+CONF_SEX = "sex"
+CONF_INITIAL_WEIGHT = "initial_weight_kg"
+CONF_USER_ID = "user_id"
+CONF_ALLOW_BIND = "allow_bind"
+PROFILE_KEYS = (CONF_BIRTH_DATE, CONF_HEIGHT, CONF_SEX, CONF_INITIAL_WEIGHT)

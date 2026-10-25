@@ -1,0 +1,116 @@
+{
+  "config": {
+    "abort": {
+      "invalid_address": "The discovered device has an invalid Bluetooth address.",
+      "unsupported_device": "The discovered Bluetooth device is not a connectable CH100 scale.",
+      "already_configured": "This scale is already configured."
+    },
+    "error": {
+      "age_out_of_range": "The profile age must be 127 or younger.",
+      "future_birth_date": "The birth date cannot be in the future.",
+      "height_not_integer": "Enter height as a whole number of centimeters.",
+      "invalid_allow_bind": "Choose whether pairing is allowed.",
+      "invalid_birth_date": "Enter a valid birth date.",
+      "invalid_height": "Height must be between 1 and 255 cm.",
+      "invalid_mac": "Enter a valid Bluetooth MAC address.",
+      "invalid_sex": "Choose male or female.",
+      "invalid_user_id": "The user ID must be from 0 to 255.",
+      "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
+      "user_id_not_integer": "The user ID must be a whole number."
+    },
+    "step": {
+      "bluetooth": {
+        "data": {
+          "allow_bind": "Allow pairing or binding",
+          "birth_date": "Birth date",
+          "height_cm": "Height (cm)",
+          "initial_weight_kg": "Initial weight hint (kg)",
+          "sex": "Sex",
+          "user_id": "Scale user ID"
+        },
+        "data_description": {
+          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
+          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
+          "user_id": "The scale user slot to configure."
+        },
+        "description": "Close Huawei Health on nearby phones before setup. No Bluetooth connection is made in this form; an asleep scale is normal.",
+        "title": "Set up the discovered Huawei AH100"
+      },
+      "user": {
+        "data": {
+          "address": "Bluetooth MAC address",
+          "allow_bind": "Allow pairing or binding",
+          "birth_date": "Birth date",
+          "height_cm": "Height (cm)",
+          "initial_weight_kg": "Initial weight hint (kg)",
+          "sex": "Sex",
+          "user_id": "Scale user ID"
+        },
+        "data_description": {
+          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
+          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
+          "user_id": "The scale user slot to configure."
+        },
+        "description": "Close Huawei Health on nearby phones before setup. Enter the scale's Bluetooth MAC address. No Bluetooth connection is made in this form; an asleep scale is normal.",
+        "title": "Add a Huawei AH100 scale"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "age_out_of_range": "The profile age must be 127 or younger.",
+      "future_birth_date": "The birth date cannot be in the future.",
+      "height_not_integer": "Enter height as a whole number of centimeters.",
+      "invalid_allow_bind": "Choose whether pairing is allowed.",
+      "invalid_birth_date": "Enter a valid birth date.",
+      "invalid_height": "Height must be between 1 and 255 cm.",
+      "invalid_sex": "Choose male or female.",
+      "invalid_user_id": "The user ID must be from 0 to 255.",
+      "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
+      "user_id_not_integer": "The user ID must be a whole number."
+    },
+    "step": {
+      "init": {
+        "data": {
+          "allow_bind": "Allow pairing or binding",
+          "birth_date": "Birth date",
+          "height_cm": "Height (cm)",
+          "initial_weight_kg": "Initial weight hint (kg)",
+          "sex": "Sex",
+          "user_id": "Scale user ID"
+        },
+        "data_description": {
+          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
+          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement.",
+          "user_id": "The scale user slot to configure."
+        },
+        "description": "Close Huawei Health on nearby phones before using the scale. Pairing remains off unless you enable it.",
+        "title": "Huawei AH100 options"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "body_fat": {
+        "name": "Body fat"
+      },
+      "impedance": {
+        "name": "Impedance"
+      },
+      "last_measurement": {
+        "name": "Last measurement"
+      },
+      "weight": {
+        "name": "Weight"
+      }
+    }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Female",
+        "male": "Male"
+      }
+    }
+  }
+}
