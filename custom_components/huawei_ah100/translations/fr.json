@@ -107,6 +107,7 @@
   "options": {
     "error": {
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
+      "invalid_require_profile_confirmation": "Choisissez si le profil doit être confirmé.",
       "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
       "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
     },
@@ -116,11 +117,13 @@
         "description": "Ces réglages s’appliquent à tous les profils de cette balance physique.",
         "data": {
           "user_id": "Identifiant utilisateur de la balance",
-          "allow_bind": "Autoriser l’association"
+          "allow_bind": "Autoriser l’association",
+          "require_profile_confirmation": "Confirmer le profil à chaque pesée"
         },
         "data_description": {
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
-          "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé."
+          "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse."
         }
       }
     }
@@ -244,6 +247,30 @@
         "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
         "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
         "duplicate_profile_name": "Un profil portant ce nom existe déjà."
+      }
+    }
+  },
+  "services": {
+    "claim_weighing": {
+      "name": "Confirmer une pesée",
+      "description": "Confirmez le profil de la personne pour une demande de pesée en attente.",
+      "fields": {
+        "entry_id": {
+          "name": "Identifiant de l’entrée",
+          "description": "Identifiant de l’entrée de configuration de la balance Huawei AH100."
+        },
+        "request_id": {
+          "name": "Identifiant de la demande",
+          "description": "Identifiant de la demande de confirmation en attente."
+        },
+        "profile_id": {
+          "name": "Identifiant du profil",
+          "description": "Identifiant du profil de la personne qui se pèse."
+        },
+        "claimant_user_id": {
+          "name": "Identifiant utilisateur Home Assistant du demandeur",
+          "description": "Pour une notification avec action, transmettez l’identifiant utilisateur du contexte de l’événement d’origine. Laissez vide pour une sélection automatique fiable."
+        }
       }
     }
   }

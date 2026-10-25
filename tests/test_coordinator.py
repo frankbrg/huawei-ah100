@@ -1,6 +1,6 @@
 import asyncio
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Event
 from types import MappingProxyType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -12,10 +12,12 @@ from bleak_retry_connector import BleakSlotManager
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.components.bluetooth.manager import HomeAssistantBluetoothManager
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.huawei_ah100 import protocol, session
 from custom_components.huawei_ah100.coordinator import HuaweiScaleCoordinator
+from custom_components.huawei_ah100.select import HuaweiAH100ActiveProfileSelect
 
 PROFILE = {
     "address": "AA:BB:CC:DD:EE:FF",
@@ -854,3 +856,285 @@ async def test_setup_with_only_initial_hint_does_not_send_health_data(sync_coord
     assert sync_coordinator.profile_data("alice") is None
     assert not sync_coordinator._pending_sync
     sync_coordinator._sparky.async_send.assert_not_awaited()
+
+
+def capture_weighing_events(coordinator):
+    events = []
+
+    @callback
+    def capture(event):
+        events.append(event)
+
+    for name in ("measurement_saved", "measurement_completed"):
+        coordinator.hass.bus.async_listen(f"huawei_ah100_{name}", capture)
+    return events
+
+
+async def test_saved_and_disabled_completion_events_follow_durable_commit(coordinator):
+    events = capture_weighing_events(coordinator)
+    original_save = coordinator._store.async_save
+
+    async def durable_save(envelope):
+        assert events == []
+        await original_save(envelope)
+
+    coordinator._store.async_save = durable_save
+    await coordinator._async_measurement(MEASUREMENT, "bob")
+    await coordinator.hass.async_block_till_done()
+    assert [event.event_type for event in events] == [
+        "huawei_ah100_measurement_saved",
+        "huawei_ah100_measurement_completed",
+    ]
+    saved, completed = [dict(event.data) for event in events]
+    stored = await coordinator._store.async_load()
+    assert len(saved["measurement_id"]) == 32
+    assert stored["profiles"]["bob"]["measurement_id"] == saved["measurement_id"]
+    assert saved == {
+        "entry_id": coordinator.entry.entry_id,
+        "profile_id": "bob",
+        "measurement_id": saved["measurement_id"],
+        "weight_kg": 70.0,
+        "fat_percent": 20.0,
+        "impedance_ohm": 450,
+        "received_at": stored["profiles"]["bob"]["received_at"],
+        "sparky_enabled": False,
+    }
+    assert completed == {**saved, "sync_status": "disabled"}
+    assert coordinator.profile_data("alice") is None
+
+
+async def test_failed_storage_emits_neither_saved_nor_completed_event(coordinator):
+    events = capture_weighing_events(coordinator)
+    coordinator._store.async_save = AsyncMock(side_effect=OSError("disk unavailable"))
+    with pytest.raises(OSError):
+        await coordinator._async_measurement(MEASUREMENT, "alice")
+    await coordinator.hass.async_block_till_done()
+    assert events == []
+    assert coordinator.profile_data("alice") is None
+    assert not coordinator._pending_sync
+
+
+async def test_sync_completion_is_emitted_only_after_successful_durable_result(sync_coordinator):
+    events = capture_weighing_events(sync_coordinator)
+    await sync_coordinator._async_measurement(MEASUREMENT, "alice")
+    await sync_coordinator.hass.async_block_till_done()
+    assert len(events) == 1
+    assert events[0].event_type == "huawei_ah100_measurement_saved"
+    assert events[0].data["sparky_enabled"]
+    key, record = next(iter(sync_coordinator._pending_sync.items()))
+    sync_coordinator._store.async_save = AsyncMock(side_effect=OSError("disk unavailable"))
+    with pytest.raises(OSError):
+        await sync_coordinator._async_sync_result(key, deepcopy(record), True)
+    await sync_coordinator.hass.async_block_till_done()
+    assert len(events) == 1
+    sync_coordinator._store.async_save = AsyncMock()
+    await sync_coordinator._async_sync_result(key, deepcopy(record), True)
+    await sync_coordinator.hass.async_block_till_done()
+    assert len(events) == 2
+    assert events[1].data == {**events[0].data, "sync_status": "synced"}
+
+
+async def test_http_failure_does_not_emit_completion(sync_coordinator):
+    events = capture_weighing_events(sync_coordinator)
+    sync_coordinator._sparky.async_send.side_effect = RuntimeError("connection unavailable")
+    await sync_coordinator._async_measurement(MEASUREMENT, "alice")
+    sync_coordinator._sync_task = asyncio.create_task(sync_coordinator._async_sync())
+    await wait_until(lambda: sync_coordinator.sync_status("alice") == "error")
+    await sync_coordinator.hass.async_block_till_done()
+    assert [event.event_type for event in events] == ["huawei_ah100_measurement_saved"]
+    assert sync_coordinator._pending_sync
+
+
+async def test_stale_http_success_cannot_complete_a_newer_measurement(sync_coordinator):
+    events = capture_weighing_events(sync_coordinator)
+    await sync_coordinator._async_measurement(MEASUREMENT, "alice")
+    key, old_record = next(iter(sync_coordinator._pending_sync.items()))
+    old_record = deepcopy(old_record)
+    await sync_coordinator._async_measurement({**MEASUREMENT, "weight_kg": 71.0}, "alice")
+    await sync_coordinator._async_sync_result(key, old_record, True)
+    await sync_coordinator.hass.async_block_till_done()
+    assert len(events) == 2
+    assert all(event.event_type == "huawei_ah100_measurement_saved" for event in events)
+    current = deepcopy(sync_coordinator._pending_sync[key])
+    await sync_coordinator._async_sync_result(key, current, True)
+    await sync_coordinator.hass.async_block_till_done()
+    assert events[-1].data["measurement_id"] == events[1].data["measurement_id"]
+    assert events[-1].data["weight_kg"] == 71.0
+    assert events[-1].data["sync_status"] == "synced"
+
+
+@pytest.mark.parametrize("legacy_id", [None, "not-a-measurement-id"])
+async def test_legacy_pending_job_without_safe_id_syncs_without_completion(
+    sync_coordinator, legacy_id
+):
+    events = capture_weighing_events(sync_coordinator)
+    await sync_coordinator._async_measurement(MEASUREMENT, "alice")
+    key, record = next(iter(sync_coordinator._pending_sync.items()))
+    if legacy_id is None:
+        record["measurement"].pop("measurement_id")
+    else:
+        record["measurement"]["measurement_id"] = legacy_id
+    await sync_coordinator._async_sync_result(key, deepcopy(record), True)
+    await sync_coordinator.hass.async_block_till_done()
+    assert len(events) == 1
+    assert not sync_coordinator._pending_sync
+
+
+async def test_restart_restores_readings_without_reemitting_saved_or_disabled_completion(
+    coordinator,
+):
+    await coordinator._async_measurement(MEASUREMENT, "alice")
+    await coordinator.hass.async_block_till_done()
+    events = capture_weighing_events(coordinator)
+    reloaded = HuaweiScaleCoordinator(coordinator.hass, coordinator.entry)
+    try:
+        await start_without_bluetooth(reloaded)
+        await coordinator.hass.async_block_till_done()
+        assert events == []
+        assert reloaded.profile_data("alice")["measurement_id"]
+    finally:
+        await reloaded.async_stop()
+
+
+async def test_confirmed_profile_changes_select_in_memory_without_options_update(coordinator):
+    entry = make_entry(options={"require_profile_confirmation": True})
+    confirmed = HuaweiScaleCoordinator(coordinator.hass, entry)
+    options_before = dict(entry.options)
+    entity = HuaweiAH100ActiveProfileSelect(confirmed)
+    entity.async_write_ha_state = Mock()
+    remove_listener = confirmed.async_add_listener(entity._handle_coordinator_update)
+    resolved = confirmed._resolve_profile(1)
+    request_id = confirmed._identity._request.request_id
+    try:
+        await confirmed.async_claim_weighing(request_id, "bob")
+        selected = await resolved
+        assert selected.profile["initial_weight_kg"] == 65.0
+        assert confirmed.active_profile_id == "bob"
+        assert entity.current_option == "Bob"
+        entity.async_write_ha_state.assert_called_once()
+        assert entry.options == options_before
+        assert not confirmed._paused
+        with pytest.raises(ServiceValidationError):
+            await confirmed.async_claim_weighing(request_id, "alice")
+    finally:
+        remove_listener()
+        await confirmed.async_stop()
+
+
+async def test_reload_invalidates_pending_identity_and_rejects_delayed_claim(coordinator):
+    entry = make_entry(options={"require_profile_confirmation": True})
+    confirmed = HuaweiScaleCoordinator(coordinator.hass, entry)
+    resolved = confirmed._resolve_profile(1)
+    request_id = confirmed._identity._request.request_id
+    try:
+        await confirmed.async_prepare_reload()
+        assert await resolved is None
+        with pytest.raises(ServiceValidationError, match="no longer available"):
+            await confirmed.async_claim_weighing(request_id, "bob")
+        with pytest.raises(ValueError, match="profile is required"):
+            await confirmed._async_measurement(MEASUREMENT)
+    finally:
+        await confirmed.async_stop()
+
+
+@pytest.mark.parametrize("disk_failure", [False, True])
+async def test_confirmation_ble_path_requests_only_on_wake_and_routes_only_to_claimed_owner(
+    coordinator, monkeypatch, disk_failure
+):
+    monkeypatch.setattr(session, "SLEEP_GRACE_SECONDS", 0.01)
+    monkeypatch.setattr(session, "DISCONNECT_POLL_SECONDS", 0.001)
+    entry = make_entry(options={"require_profile_confirmation": True})
+    confirmed = HuaweiScaleCoordinator(coordinator.hass, entry)
+    events = capture_weighing_events(confirmed)
+    mac = bytes.fromhex(confirmed.address.replace(":", ""))
+    client = Mock(is_connected=True)
+    client.services.get_characteristic.side_effect = lambda uuid: SimpleNamespace(
+        uuid=uuid, properties=("write", "notify")
+    )
+    subscribed = asyncio.Event()
+    writes = []
+    notify_callback = None
+    current_time = datetime(2034, 7, 12, 9, 8, 7, tzinfo=ZoneInfo("Europe/Paris"))
+    device_time = current_time + timedelta(seconds=1)
+
+    def emit(opcode, payload=b"", *, encrypted=False):
+        frame = bytes((0xBC if encrypted else 0xBD, len(payload) + 1, opcode))
+        notify_callback(None, bytearray(frame + protocol.obfuscate(payload, mac)))
+
+    async def start_notify(_characteristic, callback):
+        nonlocal notify_callback
+        notify_callback = callback
+        subscribed.set()
+
+    async def write(_characteristic, frame, *, response):
+        writes.append(frame)
+        if frame[2] == 0x24:
+            emit(0x26, b"\x01")
+
+    client.start_notify = start_notify
+    client.write_gatt_char = write
+    client.stop_notify = AsyncMock()
+    client.disconnect = AsyncMock()
+    if disk_failure:
+        confirmed._store.async_save = AsyncMock(side_effect=OSError("disk unavailable"))
+    with (
+        patch.object(confirmed, "_get_device", return_value=Mock()),
+        patch(
+            "custom_components.huawei_ah100.coordinator.establish_connection",
+            AsyncMock(return_value=client),
+        ),
+        patch(
+            "custom_components.huawei_ah100.coordinator.dt_util.now",
+            side_effect=lambda: current_time,
+        ),
+    ):
+        confirmed._task = asyncio.create_task(confirmed._async_listen())
+        try:
+            confirmed._wake.set()
+            await asyncio.wait_for(subscribed.wait(), 1)
+            assert confirmed._identity._request is None
+            assert not writes
+            emit(0x00)
+            request_id = confirmed._identity._request.request_id
+            await wait_until(lambda: any(frame[2] == 0x24 for frame in writes))
+            assert not any(frame[2] == 0x09 for frame in writes)
+            await confirmed.async_claim_weighing(request_id, "bob")
+            await wait_until(lambda: any(frame[2] == 0x09 for frame in writes))
+            current_time += timedelta(seconds=2)
+            plaintext = (
+                b"\x01"
+                + (650).to_bytes(2, "little")
+                + (200).to_bytes(2, "little")
+                + device_time.year.to_bytes(2, "little")
+                + bytes(
+                    (
+                        device_time.month,
+                        device_time.day,
+                        device_time.hour,
+                        device_time.minute,
+                        device_time.second,
+                        device_time.isoweekday(),
+                    )
+                )
+                + (450).to_bytes(2, "little")
+            )
+            emit(
+                0x0E,
+                protocol.aes_ctr(
+                    plaintext, protocol.derive_session_key(protocol.auth_token(1), mac)
+                ),
+                encrypted=True,
+            )
+            if disk_failure:
+                await asyncio.wait_for(confirmed._session_done.wait(), 1)
+                assert not any(frame[2] == 0x13 for frame in writes)
+                assert confirmed.profile_data("bob") is None
+            else:
+                await wait_until(lambda: any(frame[2] == 0x13 for frame in writes))
+                assert confirmed.profile_data("bob")["weight_kg"] == 65.0
+            assert confirmed.profile_data("alice") is None
+            await confirmed.hass.async_block_till_done()
+            assert len(events) == (0 if disk_failure else 2)
+            assert all(event.data["profile_id"] == "bob" for event in events)
+        finally:
+            await confirmed.async_stop()

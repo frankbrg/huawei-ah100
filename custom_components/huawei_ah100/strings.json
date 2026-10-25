@@ -107,6 +107,7 @@
   "options": {
     "error": {
       "invalid_allow_bind": "Choose whether pairing is allowed.",
+      "invalid_require_profile_confirmation": "Choose whether profile confirmation is required.",
       "invalid_user_id": "The scale user ID must be from 0 to 255.",
       "user_id_not_integer": "The user ID must be a whole number."
     },
@@ -116,11 +117,13 @@
         "description": "These settings apply to every profile on this physical scale.",
         "data": {
           "user_id": "Scale user ID",
-          "allow_bind": "Allow pairing or binding"
+          "allow_bind": "Allow pairing or binding",
+          "require_profile_confirmation": "Require profile confirmation for each weighing"
         },
         "data_description": {
           "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
-          "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized."
+          "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized.",
+          "require_profile_confirmation": "When enabled, a scale wake asks Home Assistant automations to confirm which profile is weighing."
         }
       }
     }
@@ -244,6 +247,30 @@
         "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
         "missing_sparky_api_key": "Enter an API key for the selected SparkyFitness account.",
         "duplicate_profile_name": "A profile with this name already exists."
+      }
+    }
+  },
+  "services": {
+    "claim_weighing": {
+      "name": "Claim a weighing",
+      "description": "Confirm which profile is weighing for a pending request.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry ID",
+          "description": "ID of the Huawei AH100 scale configuration entry."
+        },
+        "request_id": {
+          "name": "Request ID",
+          "description": "ID of the pending weighing confirmation request."
+        },
+        "profile_id": {
+          "name": "Profile ID",
+          "description": "ID of the profile that is weighing."
+        },
+        "claimant_user_id": {
+          "name": "Claimant Home Assistant user ID",
+          "description": "For an actionable notification, pass the original event context user ID. Leave empty for trusted automatic selection."
+        }
       }
     }
   }

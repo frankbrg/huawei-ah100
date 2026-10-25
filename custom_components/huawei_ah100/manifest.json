@@ -12,5 +12,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/frankbrg/huawei-ah100/issues",
   "requirements": ["bleak-retry-connector>=4.7.1"],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

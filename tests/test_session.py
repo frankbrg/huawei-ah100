@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -133,13 +133,23 @@ def measurement_frame(
     impedance: int = 510,
     user_id: int = 1,
     tail: bytes = b"\xa1\xb2\xc3",
+    measured_at: datetime = NOW,
 ) -> bytes:
     payload = (
         bytes((user_id,))
         + weight_tenths.to_bytes(2, "little")
         + fat_tenths.to_bytes(2, "little")
-        + (2034).to_bytes(2, "little")
-        + bytes((7, 12, 9, 8, 7, 3))
+        + measured_at.year.to_bytes(2, "little")
+        + bytes(
+            (
+                measured_at.month,
+                measured_at.day,
+                measured_at.hour,
+                measured_at.minute,
+                measured_at.second,
+                measured_at.isoweekday(),
+            )
+        )
         + impedance.to_bytes(2, "little")
         + tail
     )
@@ -216,14 +226,16 @@ async def test_live_measurement_is_durable_before_ack_and_saved_once() -> None:
 
 
 @pytest.mark.asyncio
-async def test_saving_measurement_does_not_block_authentication_responses() -> None:
+async def test_slow_save_preserves_session_wide_deduplication_across_wakes() -> None:
     client = FakeClient()
     entered = asyncio.Event()
     release = asyncio.Event()
+    saved = []
 
-    async def save(_measurement: dict[str, Any]) -> None:
+    async def save(measurement: dict[str, Any]) -> None:
         entered.set()
         await release.wait()
+        saved.append(measurement)
 
     task = await start_session(client, save)
     await wait_until(lambda: client.count(0x09) == 1)
@@ -235,7 +247,12 @@ async def test_saving_measurement_does_not_block_authentication_responses() -> N
     assert client.count(0x24) == 2
     assert client.count(0x13) == 0
     release.set()
+    await wait_until(lambda: len(saved) == 1)
+    assert client.count(0x13) == 0
+    client.emit_frame(measurement_frame())
     await wait_until(lambda: client.count(0x13) == 1)
+    assert len(saved) == 1
+    assert saved[0]["weight_kg"] == 73.4
     await finish_session(client, task)
 
 
@@ -611,3 +628,291 @@ async def test_graceful_stop_preserves_sleep_grace_for_a_late_measurement(monkey
     assert saved == [73.4]
     assert client.count(0x13) == 0
     assert client.stopped == [session.RX_UUID]
+
+
+async def test_confirmation_authenticates_and_heartbeats_without_sending_an_unclaimed_profile():
+    client = FakeClient()
+    selected = asyncio.get_running_loop().create_future()
+    cancelled = []
+    current_time = NOW
+
+    async def resolve(wake_id):
+        assert wake_id == 1
+        return await selected
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+        now_factory=lambda: current_time,
+    )
+    await wait_until(lambda: client.count(0x24) == 1)
+    await wait_until(lambda: client.count(0x20) >= 1)
+    assert client.count(0x09) == 0
+    current_time = NOW + timedelta(seconds=20)
+    selected.set_result(
+        session.SessionProfile(PROFILE | {"height_cm": 165, "sex": "male"}, ignore_measurement)
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    info = next(frame for frame in client.writes if frame[2] == 0x09)
+    assert user_info_payload(info)[7:9] == bytes((33, 165))
+    clock = next(frame for frame in client.writes if frame[2] == 0x08)
+    assert protocol.obfuscate(clock[3:], MAC)[6] == 27
+    assert not any(reason == "retry_required" for _, reason in cancelled)
+    await finish_session(client, task)
+
+
+@pytest.mark.parametrize("early_opcode", [0x0F, 0x0E])
+async def test_early_stable_or_measurement_requires_reweigh_even_after_claim(early_opcode):
+    client = FakeClient()
+    selected = asyncio.get_running_loop().create_future()
+    saved = []
+    cancelled = []
+
+    async def resolve(_wake_id):
+        return await selected
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+    )
+    await wait_until(lambda: client.count(0x24) == 1)
+    if early_opcode == 0x0E:
+        client.emit_frame(measurement_frame())
+    else:
+        client.emit(early_opcode)
+    selected.set_result(session.SessionProfile(PROFILE, save))
+    await asyncio.sleep(0.01)
+    assert client.count(0x09) == 0
+    assert client.count(0x13) == 0
+    assert saved == []
+    assert (1, "retry_required") in cancelled
+    await finish_session(client, task)
+
+
+async def test_measurement_during_configuration_is_rejected_without_acknowledging():
+    client = FakeClient()
+    saved = []
+    cancelled = []
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    async def resolve(_wake_id):
+        return session.SessionProfile(PROFILE, save)
+
+    def on_write(frame):
+        client.accept_auth(frame)
+        if frame[2] == 0x08:
+            client.emit_frame(measurement_frame(measured_at=NOW + timedelta(seconds=1)))
+
+    client.on_write = on_write
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+    )
+    await wait_until(lambda: client.count(0x08) == 1)
+    await asyncio.sleep(0.01)
+    assert client.count(0x09) == 0
+    assert client.count(0x13) == 0
+    assert saved == []
+    assert (1, "retry_required") in cancelled
+    await finish_session(client, task)
+
+
+@pytest.mark.parametrize(
+    "measured_at",
+    [NOW, NOW - timedelta(seconds=30), NOW + timedelta(seconds=60), NOW.replace(year=1900)],
+)
+async def test_confirmation_rejects_nonfresh_future_or_unknown_device_timestamps(measured_at):
+    client = FakeClient()
+    saved = []
+    cancelled = []
+    current_time = NOW
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    async def resolve(_wake_id):
+        return session.SessionProfile(PROFILE, save)
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+        now_factory=lambda: current_time,
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    current_time = NOW + timedelta(seconds=2)
+    client.emit_frame(measurement_frame(measured_at=measured_at))
+    await wait_until(lambda: (1, "retry_required") in cancelled)
+    assert client.count(0x13) == 0
+    assert saved == []
+    await finish_session(client, task)
+
+
+async def test_confirmation_accepts_fresh_composition_without_requiring_a_stable_precursor():
+    client = FakeClient()
+    saved = []
+    current_time = NOW
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    async def resolve(_wake_id):
+        return session.SessionProfile(PROFILE, save)
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        now_factory=lambda: current_time,
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    current_time = NOW + timedelta(seconds=2)
+    client.emit_frame(measurement_frame(measured_at=NOW + timedelta(seconds=1)))
+    await wait_until(lambda: client.count(0x13) == 1)
+    assert len(saved) == 1
+    assert saved[0]["weight_kg"] == 73.4
+    await finish_session(client, task)
+
+
+async def test_slow_save_keeps_its_original_profile_and_deduplicates_replay_across_wakes():
+    client = FakeClient()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    saved = []
+    cancelled = []
+    current_time = NOW
+
+    async def save_a(measurement):
+        entered.set()
+        await release.wait()
+        saved.append(("alice", measurement["weight_kg"]))
+
+    async def save_b(measurement):
+        saved.append(("bob", measurement["weight_kg"]))
+
+    async def resolve(wake_id):
+        return session.SessionProfile(
+            PROFILE | {"height_cm": 180 if wake_id == 1 else 165},
+            save_a if wake_id == 1 else save_b,
+        )
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+        now_factory=lambda: current_time,
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    current_time += timedelta(seconds=2)
+    client.emit_frame(measurement_frame(measured_at=NOW + timedelta(seconds=1)))
+    await entered.wait()
+    client.emit(0x01)
+    current_time += timedelta(seconds=10)
+    second_configured = current_time
+    client.emit(0x00)
+    await wait_until(lambda: client.count(0x09) == 2)
+    release.set()
+    await wait_until(lambda: saved == [("alice", 73.4)])
+    assert client.count(0x13) == 0
+    current_time += timedelta(seconds=2)
+    client.emit_frame(measurement_frame(measured_at=NOW + timedelta(seconds=1)))
+    await wait_until(lambda: client.count(0x13) == 1)
+    assert saved == [("alice", 73.4)]
+    assert not any(reason == "retry_required" for _, reason in cancelled)
+    client.emit_frame(
+        measurement_frame(weight_tenths=650, measured_at=second_configured + timedelta(seconds=1))
+    )
+    await wait_until(lambda: client.count(0x13) == 2)
+    assert saved == [("alice", 73.4), ("bob", 65.0)]
+    assert user_info_payload([frame for frame in client.writes if frame[2] == 0x09][1])[8] == 165
+    await finish_session(client, task)
+
+
+async def test_confirmation_invalid_decoded_timestamp_fails_closed_without_stopping_listener(
+    monkeypatch,
+):
+    client = FakeClient()
+    cancelled = []
+    saved = []
+    decoded = protocol.decode_measurement(measurement_frame(), AUTH, MAC)
+    monkeypatch.setattr(
+        protocol, "decode_measurement", lambda *_args: decoded | {"measured_at": "invalid-date"}
+    )
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    async def resolve(_wake_id):
+        return session.SessionProfile(PROFILE, save)
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    client.emit_frame(measurement_frame())
+    await wait_until(lambda: (1, "retry_required") in cancelled)
+    assert not task.done()
+    assert saved == []
+    assert client.count(0x13) == 0
+    await finish_session(client, task)
+
+
+@pytest.mark.parametrize(
+    ("configured_at", "measured_at", "received_at"),
+    [
+        (
+            datetime(2026, 10, 25, 2, 30, tzinfo=ZoneInfo("Europe/Paris")),
+            datetime(2026, 10, 25, 2, 30, 1),
+            datetime(2026, 10, 25, 2, 30, 2, tzinfo=ZoneInfo("Europe/Paris")),
+        ),
+        (
+            datetime(2026, 10, 25, 1, 59, 59, tzinfo=ZoneInfo("Europe/Paris")),
+            datetime(2026, 10, 25, 2, 0),
+            datetime(2026, 10, 25, 3, 0, tzinfo=ZoneInfo("Europe/Paris")),
+        ),
+    ],
+)
+async def test_confirmation_rejects_ambiguous_dst_clock_or_measurement_wall_time(
+    configured_at, measured_at, received_at
+):
+    client = FakeClient()
+    cancelled = []
+    saved = []
+    current_time = configured_at
+
+    async def save(measurement):
+        saved.append(measurement)
+
+    async def resolve(_wake_id):
+        return session.SessionProfile(PROFILE, save)
+
+    task = await start_session(
+        client,
+        ignore_measurement,
+        resolve_profile=resolve,
+        cancel_profile=lambda wake_id, reason: cancelled.append((wake_id, reason)),
+        now_factory=lambda: current_time,
+    )
+    await wait_until(lambda: client.count(0x09) == 1)
+    current_time = received_at
+    client.emit_frame(measurement_frame(measured_at=measured_at))
+    await wait_until(lambda: (1, "retry_required") in cancelled)
+    assert saved == []
+    assert client.count(0x13) == 0
+    await finish_session(client, task)

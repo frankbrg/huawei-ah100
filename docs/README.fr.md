@@ -13,7 +13,7 @@ Une intégration Bluetooth locale et non officielle pour lire dans Home Assistan
 [![Ouvrir ce dépôt dans HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=frankbrg&repository=huawei-ah100&category=integration)
 [![Ajouter l’intégration à Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=huawei_ah100)
 
-> **État de validation :** le protocole BLE a été validé avec une balance Huawei AH100/CH100 équipée d’un contrôleur Chipsea CST34M97 et du firmware 1050, à l’aide d’un Raspberry Pi. La pesée via l’intégration native Home Assistant et la synchronisation SparkyFitness authentifiée n’ont pas encore été validées de bout en bout.
+> **État de validation :** l’ancien parcours manuel de profil Home Assistant a reçu une vraie mesure de la balance. Le nouveau flux de confirmation du profil et d’automatisation du foyer, ainsi que l’export vers SparkyFitness, n’ont pas encore été validés de bout en bout sur le matériel.
 
 ## Fonctionnalités
 
@@ -42,7 +42,7 @@ Le poids initial sert uniquement d’indication lors de la synchronisation d’u
 
 La configuration initiale demande au Bluetooth de Home Assistant de rechercher activement les balances CH100 connectables à proximité et affiche un choix lorsqu’il en trouve une. Après configuration, la détection Bluetooth de Home Assistant repère le réveil de la balance. Les proxies Bluetooth n’ont pas été vérifiés. L’intégration n’a besoin ni de MQTT, ni de Docker, ni d’un service compagnon, ni d’un compte cloud.
 
-Ce projet communautaire indépendant n’est pas affilié à Huawei. La version de l’intégration est **0.2.0**. La demande d’ajout au catalogue HACS par défaut est [ouverte et en attente de l’examen des mainteneurs](https://github.com/hacs/default/pull/12666) ; en attendant son acceptation, ajoutez le dépôt comme dépôt personnalisé avec le bouton ci-dessus.
+Ce projet communautaire indépendant n’est pas affilié à Huawei. La version de l’intégration est **0.3.0**. La demande d’ajout au catalogue HACS par défaut est [ouverte et en attente de l’examen des mainteneurs](https://github.com/hacs/default/pull/12666) ; en attendant son acceptation, ajoutez le dépôt comme dépôt personnalisé avec le bouton ci-dessus.
 
 ## Installation
 
@@ -85,7 +85,17 @@ Ouvrez la page de l’intégration Huawei AH100 dans **Paramètres → Appareils
 
 Avant de monter sur la balance, choisissez la personne dans le sélecteur **Profil actif** de l’appareil physique. Chaque profil possède ses propres mesures et son propre appareil Home Assistant, lié à la balance physique. Après la mise à jour depuis l’ancienne configuration à profil unique, elle devient **Profile 1** et conserve ses identifiants de capteurs, ses mesures et leur historique.
 
-L’**Identifiant utilisateur de la balance** et l’option **Autoriser l’association** sont des réglages de connexion partagés par tous les profils et se trouvent dans les options de l’intégration. Cet identifiant est l’emplacement de la balance utilisé pour l’authentification Bluetooth, pas l’identifiant du profil. Changer de profil actif ne modifie pas ce réglage et ne réassocie pas la balance. Si une session est en cours, Home Assistant la laisse se terminer et associe son résultat au profil d’origine avant d’utiliser le nouveau profil pour la prochaine session.
+L’**Identifiant utilisateur de la balance**, l’option **Autoriser l’association** et l’option facultative **Confirmer le profil à chaque pesée** sont des réglages de connexion partagés par tous les profils et se trouvent dans les options de l’intégration. Cet identifiant est l’emplacement de la balance utilisé pour l’authentification Bluetooth, pas l’identifiant du profil. Changer de profil actif ne modifie pas ce réglage et ne réassocie pas la balance. Si une session est en cours, Home Assistant la laisse se terminer et associe son résultat au profil d’origine avant d’utiliser le nouveau profil pour la prochaine session.
+
+## Automatisations de foyer facultatives
+
+Le choix manuel du profil actif reste le comportement par défaut. Pour demander aux automatisations Home Assistant de confirmer le profil à chaque pesée, activez **Confirmer le profil à chaque pesée** dans les options de l’intégration de la balance. Cette option n’apparaît pas dans la configuration initiale.
+
+Lorsque l’option est activée, le réveil de la balance émet l’événement `huawei_ah100_weighing_requested` avec l’`entry_id` de la balance, un `request_id`, une heure d’expiration `expires_at` et les profils configurés (`profile_id`, `name` et, s’il existe, `person_entity_id`). L’intégration ne détermine pas qui est présent au domicile et n’envoie pas de notifications ; créez vos propres automatisations Home Assistant. Elles peuvent confirmer automatiquement lorsqu’une seule personne admissible est identifiée par la logique du foyer, ou envoyer des notifications avec action lorsque plusieurs personnes peuvent se peser. Pour une notification avec action, transmettez le `trigger.event.context.user_id` de l’événement d’origine dans `claimant_user_id` ; utilisez ce contexte et non une valeur d’identité fournie dans les données de l’action.
+
+Une automatisation confirme un profil avec `huawei_ah100.claim_weighing`, en transmettant l’`entry_id` et le `request_id` de l’événement ainsi que le `profile_id` choisi. Le champ facultatif `claimant_user_id` indique l’utilisateur Home Assistant authentifié qui a appuyé sur l’action d’une notification ; laissez-le vide pour une sélection automatique fiable. La première confirmation valide est retenue. Une demande est refusée après son expiration, lorsque la balance s’endort ou se déconnecte, ou lorsque Home Assistant est rechargé. Une fois confirmé, le profil reste associé à cette mesure, car la balance utilise ses données démographiques pour calculer la masse grasse. Si la balance s’est déjà rendormie, réveillez-la à nouveau, confirmez la nouvelle demande, puis pesez-vous.
+
+Après une confirmation, l’intégration émet `huawei_ah100_profile_confirmed`. Elle émet `huawei_ah100_weighing_cancelled` si une demande se termine sans mesure ; cet événement contient un `reason`. Quand une mesure est enregistrée durablement en local, `huawei_ah100_measurement_saved` est émis avec son `measurement_id` ; il peut déclencher un retour immédiat, par exemple un voyant vert. `huawei_ah100_measurement_completed` est émis pour cette même mesure durable après la réussite de SparkyFitness ou si la synchronisation est désactivée ; son `sync_status` vaut `synced` ou `disabled`. Utilisez l’événement terminé pour envoyer une notification finale du résultat à la personne concernée. Les champs d’événement et le cycle de vie des demandes sont détaillés dans les [notes de protocole](protocol.md).
 
 ## Synchronisation SparkyFitness
 

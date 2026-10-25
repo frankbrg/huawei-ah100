@@ -13,7 +13,7 @@ An unofficial, local Bluetooth integration for reading body-composition measurem
 [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=frankbrg&repository=huawei-ah100&category=integration)
 [![Add the integration to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=huawei_ah100)
 
-> **Validation status:** The BLE protocol has been validated against a Huawei AH100/CH100 scale with a Chipsea CST34M97 controller and firmware 1050 using a Raspberry Pi. Native Home Assistant hardware weighing and authenticated SparkyFitness sync have not yet completed end-to-end validation.
+> **Validation status:** The existing manual Home Assistant profile flow has received a real scale reading. The new profile-confirmation and household-automation flow and SparkyFitness export have not yet been validated end to end against the hardware.
 
 ## What it provides
 
@@ -42,7 +42,7 @@ The initial weight is only a hint used when synchronizing a profile to the scale
 
 Initial setup asks Home Assistant's Bluetooth stack to actively scan for nearby, connectable CH100 scales and offers a chooser when it finds one. After setup, Home Assistant's Bluetooth discovery detects the scale waking up. Bluetooth proxies have not been verified. The integration does not require MQTT, Docker, a companion service, or a cloud account.
 
-This is an independent community project and is not affiliated with Huawei. The integration version is **0.2.0**. The request to add the repository to the HACS default catalog is [open and awaiting maintainer review](https://github.com/hacs/default/pull/12666); until it is accepted, add it as a custom repository using the button above.
+This is an independent community project and is not affiliated with Huawei. The integration version is **0.3.0**. The request to add the repository to the HACS default catalog is [open and awaiting maintainer review](https://github.com/hacs/default/pull/12666); until it is accepted, add it as a custom repository using the button above.
 
 ## Installation
 
@@ -85,7 +85,17 @@ Open the Huawei AH100 integration page in **Settings → Devices & services** an
 
 Choose the person in the physical scale's **Active profile** selector before weighing. Each profile has separate measurements and its own device in Home Assistant, linked to the physical scale. If you upgrade from the previous single-profile setup, it becomes **Profile 1** and keeps its existing sensor IDs, readings, and history.
 
-The scale's **Scale user ID** and **Allow pairing or binding** settings are shared by every profile and live in the integration's connection options. The user ID is the scale's authentication slot, not the profile ID. Changing active profiles does not change this setting or rebind the scale. If a weighing session is already running, Home Assistant lets it finish and associates the result with the original profile before the next session uses the newly selected profile.
+The scale's **Scale user ID**, **Allow pairing or binding**, and optional **Require profile confirmation for each weighing** settings are shared by every profile and live in the integration's connection options. The user ID is the scale's authentication slot, not the profile ID. Changing active profiles does not change this setting or rebind the scale. If a weighing session is already running, Home Assistant lets it finish and associates the result with the original profile before the next session uses the newly selected profile.
+
+## Optional household automations
+
+The existing manual active-profile flow remains the default. To ask Home Assistant automations to confirm the profile for each weighing, enable **Require profile confirmation for each weighing** in the scale's integration options. Initial setup does not show this option.
+
+When enabled, a scale wake emits `huawei_ah100_weighing_requested` with the scale `entry_id`, a `request_id`, an expiry time in `expires_at`, and the configured profiles (`profile_id`, `name`, and optional `person_entity_id`). The integration does not decide who is home or send notifications; create Home Assistant automations for your household. They can claim automatically when household logic identifies exactly one eligible resident, or send actionable notifications when several residents may be weighing. For an actionable notification, pass the original event's `trigger.event.context.user_id` as `claimant_user_id`; use that event context rather than an identity value supplied in notification action data.
+
+An automation confirms a profile with `huawei_ah100.claim_weighing`, passing the event's `entry_id` and `request_id` plus the chosen `profile_id`. The optional `claimant_user_id` field is for the authenticated Home Assistant user who tapped an actionable notification; leave it empty for trusted automatic selection. The first valid claim wins. A request is rejected after it expires or the scale sleeps, disconnects, or Home Assistant reloads. Once claimed, the profile stays fixed for that measurement because the scale uses its demographic details when calculating body-fat readings. If the scale has already gone back to sleep, wake it again, claim the new request, then weigh.
+
+The integration emits `huawei_ah100_profile_confirmed` after accepting a claim and `huawei_ah100_weighing_cancelled` when a request ends without a measurement; the latter includes a `reason`. When a measurement is durably saved locally, `huawei_ah100_measurement_saved` fires with its `measurement_id`, which can drive an immediate local acknowledgement such as a green blink. `huawei_ah100_measurement_completed` fires for that same durable measurement after SparkyFitness succeeds or when sync is disabled, with `sync_status` set to `synced` or `disabled`. Use the completed event for a final result notification to the owner. For event fields and the request lifecycle, see [Protocol notes](docs/protocol.md).
 
 ## SparkyFitness sync
 

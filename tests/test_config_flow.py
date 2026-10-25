@@ -28,6 +28,7 @@ from custom_components.huawei_ah100.const import (
     CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SEX,
     CONF_SPARKY_API_KEY,
     CONF_SPARKY_ENABLED,
@@ -172,6 +173,7 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
     assert user_input[CONF_NAME] == "Profile 1"
     assert user_input[CONF_SPARKY_ENABLED] is False
     assert USER_SCHEMA.schema[CONF_BIRTH_DATE].config["type"] == "text"
+    assert CONF_REQUIRE_PROFILE_CONFIRMATION not in [key.schema for key in USER_SCHEMA.schema]
     assert _profile_errors(user_input, date(2026, 10, 25)) == {}
     assert _connection_data(user_input) == {
         CONF_USER_ID: 1,
@@ -523,12 +525,22 @@ async def test_options_flow_only_changes_shared_connection_settings() -> None:
     input_with_profile_data = _profile_input(user_id=2.0, allow_bind=True)
 
     result = await options_flow.async_step_init(input_with_profile_data)
+    validated_options = OPTIONS_SCHEMA({CONF_USER_ID: 2, CONF_ALLOW_BIND: True})
 
     assert all(key.schema != CONF_ADDRESS for key in OPTIONS_SCHEMA.schema)
-    assert [key.schema for key in OPTIONS_SCHEMA.schema] == [CONF_USER_ID, CONF_ALLOW_BIND]
+    assert [key.schema for key in OPTIONS_SCHEMA.schema] == [
+        CONF_USER_ID,
+        CONF_ALLOW_BIND,
+        CONF_REQUIRE_PROFILE_CONFIRMATION,
+    ]
     assert result["type"] == "create_entry"
     assert CONF_ADDRESS not in result["data"]
-    assert result["data"] == {CONF_USER_ID: 2, CONF_ALLOW_BIND: True}
+    assert result["data"] == {
+        CONF_USER_ID: 2,
+        CONF_ALLOW_BIND: True,
+        CONF_REQUIRE_PROFILE_CONFIRMATION: False,
+    }
+    assert validated_options[CONF_REQUIRE_PROFILE_CONFIRMATION] is False
 
 
 async def test_options_flow_preserves_active_profile_and_other_options() -> None:
@@ -536,7 +548,13 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
         {CONF_ACTIVE_PROFILE: "profile-b", "unrelated_option": "preserved"}
     )
 
-    result = await options_flow.async_step_init({CONF_USER_ID: 2.0, CONF_ALLOW_BIND: True})
+    result = await options_flow.async_step_init(
+        {
+            CONF_USER_ID: 2.0,
+            CONF_ALLOW_BIND: True,
+            CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+        }
+    )
 
     assert result["type"] == "create_entry"
     assert result["data"] == {
@@ -544,6 +562,24 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
         "unrelated_option": "preserved",
         CONF_USER_ID: 2,
         CONF_ALLOW_BIND: True,
+        CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+    }
+
+
+async def test_options_flow_rejects_non_boolean_profile_confirmation() -> None:
+    options_flow = _options_flow()
+
+    result = await options_flow.async_step_init(
+        {
+            CONF_USER_ID: 1,
+            CONF_ALLOW_BIND: False,
+            CONF_REQUIRE_PROFILE_CONFIRMATION: "enabled",
+        }
+    )
+
+    assert result["type"] == "form"
+    assert result["errors"] == {
+        CONF_REQUIRE_PROFILE_CONFIRMATION: "invalid_require_profile_confirmation"
     }
 
 

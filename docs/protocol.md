@@ -4,7 +4,7 @@ This page records the supported subset of the Huawei AH100 Bluetooth protocol us
 
 ## Validation scope
 
-The protocol path was exercised against a physical Huawei AH100/CH100 scale using a Chipsea CST34M97 controller and firmware 1050 from a Raspberry Pi. The native Home Assistant integration wrapper has not yet been validated end to end against the hardware. Other AH100 revisions, firmware versions, and Bluetooth proxies remain unverified.
+The protocol path was exercised against a physical Huawei AH100/CH100 scale using a Chipsea CST34M97 controller and firmware 1050 from a Raspberry Pi. The existing manual Home Assistant profile flow has received a real scale reading, but the new profile-confirmation and household-automation flow has not been validated end to end against the hardware. Other AH100 revisions, firmware versions, and Bluetooth proxies remain unverified.
 
 The implementation is based on openScale's Kotlin [`HuaweiAhCh100Handler.kt`](https://github.com/oliexdev/openScale/blob/39a0c5c25a0abc26b8e24c90f36b5a2c6ff07a4a/android_app/app/src/main/java/com/health/openscale/core/bluetooth/scales/HuaweiAhCh100Handler.kt) at commit [`39a0c5c25a0abc26b8e24c90f36b5a2c6ff07a4a`](https://github.com/oliexdev/openScale/commit/39a0c5c25a0abc26b8e24c90f36b5a2c6ff07a4a), ported to Python. The port is distributed under GPL-3.0-or-later; see the repository license.
 
@@ -31,6 +31,8 @@ The second header byte is a protocol length field; the third is the opcode. Payl
 4. After authentication, the integration configures kilograms, synchronizes the clock, and sends the configured user profile. A user-change notification (`0x20`) can trigger a profile refresh.
 5. A valid live measurement is decoded and acknowledged with command `0x13` and payload `00`. History records are not acknowledged as live measurements.
 
+Profile confirmation is an optional shared connection setting, off by default and absent from initial setup. When enabled, wake opcode `0x00` starts a short-lived Home Assistant confirmation request. The integration waits for a valid profile claim before sending that profile's demographic details to the scale. With the option off, the existing manual active-profile selection continues to determine which profile is sent.
+
 The profile's initial weight is a scale-configuration hint, not a Home Assistant measurement. Once a live reading exists, that actual reading can be used as the next profile hint.
 
 The integration does not issue factory-reset or delete commands. It does not enumerate possible user IDs or request history records.
@@ -52,6 +54,18 @@ The wire-level `user_id` is one setting on the physical scale config entry and i
 The session also sends heartbeat command `0x20` with an empty payload while the scale is awake. Unit command `0x02` uses payload `01` for kilograms. Clock command `0x08` carries the date, time, and weekday. Encrypted user-profile command `0x09` carries the configured profile fields.
 
 The protocol also defines paired continuation opcodes `0x8E` and `0x90` for measurement and history transfers. The supported live path decodes the verified first-half measurement payload and does not concatenate continuation bytes to manufacture additional fields.
+
+## Profile confirmation and Home Assistant events
+
+With **Require profile confirmation for each weighing** enabled, a wake emits `huawei_ah100_weighing_requested`. The event contains `entry_id`, a per-request `request_id`, UTC `expires_at`, and `profiles`, a list of configured candidates with `profile_id`, `name`, and optional `person_entity_id`. The integration does not decide who is home or send notifications; household automations must resolve the resident or ask them to act.
+
+Automations claim a profile with the `huawei_ah100.claim_weighing` service. Required fields are the request's `entry_id`, `request_id`, and selected `profile_id`. The optional `claimant_user_id` identifies the Home Assistant user who responded to an actionable notification. In that case, pass the original event's `trigger.event.context.user_id`; do not use a user ID supplied in notification `action_data`. Leave the field empty for trusted automatic selection, such as an automation that found exactly one eligible resident.
+
+The first valid claim wins. A request cannot be claimed after its expiry, after the scale sleeps or disconnects, or after Home Assistant reloads. When a request ends without producing a measurement, `huawei_ah100_weighing_cancelled` includes `entry_id`, `request_id`, and `reason` (`expired`, `sleep`, `disconnected`, `reload`, `timeout`, `retry_required`, `superseded`, `session_ended`, or `stopped`). The `retry_required` reason means the scale sent an early response or its device timestamp could not be trusted; wake the scale again and claim the new request before weighing. An accepted claim emits `huawei_ah100_profile_confirmed` with `entry_id`, `request_id`, `profile_id`, and optional `person_entity_id`.
+
+A profile stays assigned to its measurement after confirmation. The scale uses that profile's demographic data to calculate body-fat readings, so changing the profile after weighing cannot correct a mismatch in a reliable way. If a resident misses the short claim window, wake the scale again, claim the new request, then weigh.
+
+Measurement lifecycle events carry a durable `measurement_id`. `huawei_ah100_measurement_saved` fires after Home Assistant stores the accepted measurement locally and can drive an immediate local acknowledgement, such as a green blink. `huawei_ah100_measurement_completed` fires for the same `measurement_id` after SparkyFitness sync succeeds or when sync is disabled. Its `sync_status` is `synced` or `disabled`; use this event for a final result notification to the owner. Both events carry the saved measurement fields: `entry_id`, `profile_id`, `measurement_id`, `weight_kg`, `fat_percent`, `impedance_ohm`, `received_at`, optional `person_entity_id`, and `sparky_enabled`.
 
 ## Decoded live measurement
 

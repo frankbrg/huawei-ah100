@@ -20,6 +20,7 @@ from .const import (
     SUBENTRY_PROFILE,
 )
 from .coordinator import HuaweiScaleCoordinator
+from .services import async_setup_services
 
 PLATFORMS = [Platform.SELECT, Platform.SENSOR]
 type HuaweiScaleConfigEntry = ConfigEntry[HuaweiScaleCoordinator]
@@ -68,6 +69,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: HuaweiScaleConfigEntry) -> bool:
     """Initialize the coordinator and forward the sensor platform setup."""
+    async_setup_services(hass)
     coordinator = HuaweiScaleCoordinator(hass, entry)
     entry.runtime_data = coordinator
     try:

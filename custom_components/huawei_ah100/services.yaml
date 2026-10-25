@@ -1,0 +1,18 @@
+claim_weighing:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: huawei_ah100
+    request_id:
+      required: true
+      selector:
+        text:
+    profile_id:
+      required: true
+      selector:
+        text:
+    claimant_user_id:
+      selector:
+        text:

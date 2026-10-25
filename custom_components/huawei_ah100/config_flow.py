@@ -28,6 +28,7 @@ from .const import (
     CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SEX,
     CONF_SPARKY_API_KEY,
     CONF_SPARKY_ENABLED,
@@ -118,7 +119,14 @@ def _profile_schema(
 PROFILE_SCHEMA = _profile_schema()
 USER_SCHEMA = _profile_schema(include_address=True, include_connection=True)
 BLUETOOTH_SCHEMA = _profile_schema(include_connection=True)
-OPTIONS_SCHEMA = probatio.Schema(_connection_fields())
+OPTIONS_SCHEMA = probatio.Schema(
+    {
+        **_connection_fields(),
+        probatio.Optional(CONF_REQUIRE_PROFILE_CONFIRMATION, default=False): selector(
+            {"boolean": {}}
+        ),
+    }
+)
 
 
 def _as_date(value: Any) -> date | None:
@@ -219,6 +227,11 @@ def _connection_errors(user_input: dict[str, Any]) -> dict[str, str]:
 
     if not isinstance(user_input.get(CONF_ALLOW_BIND), bool):
         errors[CONF_ALLOW_BIND] = "invalid_allow_bind"
+
+    if CONF_REQUIRE_PROFILE_CONFIRMATION in user_input and not isinstance(
+        user_input[CONF_REQUIRE_PROFILE_CONFIRMATION], bool
+    ):
+        errors[CONF_REQUIRE_PROFILE_CONFIRMATION] = "invalid_require_profile_confirmation"
     return errors
 
 
@@ -534,6 +547,9 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                     data={
                         **self.config_entry.options,
                         **_connection_data(user_input),
+                        CONF_REQUIRE_PROFILE_CONFIRMATION: user_input.get(
+                            CONF_REQUIRE_PROFILE_CONFIRMATION, False
+                        ),
                     },
                 )
 
@@ -545,6 +561,9 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                 {
                     CONF_USER_ID: suggestions.get(CONF_USER_ID, 1),
                     CONF_ALLOW_BIND: suggestions.get(CONF_ALLOW_BIND, False),
+                    CONF_REQUIRE_PROFILE_CONFIRMATION: suggestions.get(
+                        CONF_REQUIRE_PROFILE_CONFIRMATION, False
+                    ),
                 },
             ),
             errors=errors,

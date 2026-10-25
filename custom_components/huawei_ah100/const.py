@@ -9,6 +9,7 @@ CONF_ALLOW_BIND = "allow_bind"
 PROFILE_KEYS = (CONF_BIRTH_DATE, CONF_HEIGHT, CONF_SEX, CONF_INITIAL_WEIGHT)
 SUBENTRY_PROFILE = "profile"
 CONF_ACTIVE_PROFILE = "active_profile_id"
+CONF_REQUIRE_PROFILE_CONFIRMATION = "require_profile_confirmation"
 CONF_LEGACY_PROFILE = "legacy_profile"
 CONF_PERSON = "person_entity_id"
 CONF_SPARKY_ENABLED = "sparky_enabled"

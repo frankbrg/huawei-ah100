@@ -1,14 +1,17 @@
+"""Coordinate scale sessions, profile readings, and optional SparkyFitness sync."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import math
-from collections.abc import Mapping
+from collections.abc import Coroutine, Mapping
 from contextlib import suppress
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Any
+from uuid import UUID, uuid4
 
 from bleak.exc import BleakError
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
@@ -16,6 +19,7 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -23,13 +27,17 @@ from .const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
     CONF_LEGACY_PROFILE,
+    CONF_PERSON,
+    CONF_REQUIRE_PROFILE_CONFIRMATION,
+    CONF_SPARKY_ENABLED,
     CONF_USER_ID,
     DOMAIN,
     NAME,
     PROFILE_KEYS,
     SUBENTRY_PROFILE,
 )
-from .session import AuthenticationError, run_session
+from .identity import IdentityRequests
+from .session import AuthenticationError, SessionProfile, run_session
 from .sparky import SparkyClient, destination_from_profile, measurement_day
 from .storage import MeasurementStore
 
@@ -89,21 +97,28 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._pending_sync: dict[str, dict[str, Any]] = {}
         self._sync_state: dict[str, dict[str, Any]] = {}
         self._sparky = SparkyClient(hass)
+        self._identity = IdentityRequests(
+            hass, entry.entry_id, self._profiles, self._profile_claimed
+        )
         self.data = {}
 
     @property
     def profiles(self) -> Mapping[str, Mapping[str, Any]]:
+        """Return the configured profiles keyed by subentry ID."""
         return self._profiles
 
     @property
     def active_profile_id(self) -> str | None:
+        """Return the profile selected for the next manual session."""
         return self._active_profile_id
 
     def profile_data(self, profile_id: str) -> dict[str, Any] | None:
+        """Return the latest stored measurement for a profile, if available."""
         reading = self._readings.get(profile_id)
         return dict(reading) if reading is not None else None
 
     def sync_status(self, profile_id: str) -> str:
+        """Return the profile's current SparkyFitness sync state."""
         if profile_id in self._destination_errors:
             return "error"
         if self._destinations.get(profile_id) is None:
@@ -111,6 +126,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return self._sync_state.get(profile_id, {}).get("status", "pending")
 
     async def async_start(self) -> None:
+        """Restore saved data and start Bluetooth discovery and sync workers."""
         stored = await self._store.async_load()
         readings: dict[str, dict[str, Any]] = {}
         pending: dict[str, dict[str, Any]] = {}
@@ -249,6 +265,80 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     def _publish(self) -> None:
         self.async_set_updated_data(deepcopy(self._readings))
 
+    def _profile_claimed(self, profile_id: str) -> None:
+        self._active_profile_id = profile_id
+        self._publish()
+
+    async def async_claim_weighing(
+        self,
+        request_id: str,
+        profile_id: str,
+        *,
+        claimant_user_id: str | None = None,
+        context_user_id: str | None = None,
+    ) -> None:
+        """Claim the active wake request for one profile."""
+        if self._paused or not self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False):
+            raise ServiceValidationError("The weighing request is no longer available")
+        self._identity.claim(
+            request_id,
+            profile_id,
+            claimant_user_id=claimant_user_id,
+            context_user_id=context_user_id,
+        )
+
+    def _profile_snapshot(self, profile_id: str) -> dict[str, Any]:
+        profile = {key: self._profiles[profile_id][key] for key in PROFILE_KEYS}
+        if (reading := self._readings.get(profile_id)) is not None:
+            profile["latest_weight_kg"] = reading["weight_kg"]
+        return profile
+
+    def _resolve_profile(self, wake_id: int) -> Coroutine[Any, Any, SessionProfile | None]:
+        future = self._identity.request(wake_id)
+
+        async def resolve() -> SessionProfile | None:
+            profile_id = await future
+            if profile_id is None:
+                return None
+
+            async def save(measurement: dict[str, Any]) -> None:
+                await self._async_measurement(measurement, profile_id)
+                self._identity.finish(wake_id)
+
+            return SessionProfile(self._profile_snapshot(profile_id), save)
+
+        return resolve()
+
+    def _measurement_event(
+        self, profile_id: str, measurement: dict[str, Any], *, sync_status: str | None = None
+    ) -> None:
+        measurement_id = measurement.get("measurement_id")
+        if not isinstance(measurement_id, str) or not measurement_id:
+            return
+        try:
+            parsed_id = UUID(measurement_id)
+            if parsed_id.hex != measurement_id or parsed_id.version != 4:
+                return
+        except ValueError:
+            return
+        payload = {
+            "entry_id": self.entry.entry_id,
+            "profile_id": profile_id,
+            "measurement_id": measurement_id,
+            "weight_kg": measurement["weight_kg"],
+            "fat_percent": measurement.get("fat_percent"),
+            "impedance_ohm": measurement.get("impedance_ohm"),
+            "received_at": measurement["received_at"],
+            "sparky_enabled": bool(self._profiles[profile_id].get(CONF_SPARKY_ENABLED, False)),
+        }
+        if person := self._profiles[profile_id].get(CONF_PERSON):
+            payload[CONF_PERSON] = person
+        event = "measurement_saved"
+        if sync_status is not None:
+            payload["sync_status"] = sync_status
+            event = "measurement_completed"
+        self.hass.bus.async_fire(f"{DOMAIN}_{event}", payload)
+
     async def _commit(
         self,
         readings: dict[str, dict[str, Any]],
@@ -262,10 +352,16 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     async def _async_measurement(
         self, measurement: dict[str, Any], profile_id: str | None = None
     ) -> None:
+        if profile_id is None and self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False):
+            raise ValueError("measurement profile is required")
         profile_id = profile_id or self._active_profile_id
         if profile_id not in self._profiles:
             raise ValueError("measurement profile does not exist")
-        payload = {**measurement, "received_at": dt_util.utcnow().isoformat()}
+        payload = {
+            **measurement,
+            "received_at": dt_util.utcnow().isoformat(),
+            "measurement_id": uuid4().hex,
+        }
         async with self._storage_lock:
             readings = {**self._readings, profile_id: payload}
             pending, states = dict(self._pending_sync), dict(self._sync_state)
@@ -283,6 +379,9 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 states[profile_id] = {"destination": destination.fingerprint, "status": "pending"}
             # Store the reading and its sync job together so a restart cannot split their state.
             await self._commit(readings, pending, states)
+        self._measurement_event(profile_id, payload)
+        if destination is None and profile_id not in self._destination_errors:
+            self._measurement_event(profile_id, payload, sync_status="disabled")
         self._sync_wake.set()
 
     async def _async_listen(self) -> None:
@@ -296,9 +395,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 continue
             # Keep this session's readings bound to its profile, even if the user switches profiles.
             profile_id = self._active_profile_id
-            profile = {key: self._profiles[profile_id][key] for key in PROFILE_KEYS}
-            if (reading := self._readings.get(profile_id)) is not None:
-                profile["latest_weight_kg"] = reading["weight_kg"]
+            profile = self._profile_snapshot(profile_id)
             stop_event = self._session_stop = asyncio.Event()
             self._session_done.clear()
             client = None
@@ -318,15 +415,25 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                     use_services_cache=False,
                 )
                 if not self._paused:
+                    identity_options = {}
+                    if self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False):
+                        identity_options = {
+                            "resolve_profile": self._resolve_profile,
+                            "cancel_profile": lambda wake_id, reason: self._identity.cancel(
+                                reason, wake_id
+                            ),
+                            "now_factory": dt_util.now,
+                        }
                     await run_session(
                         client,
                         self.address,
-                        profile,
+                        None if identity_options else profile,
                         save,
                         allow_bind=self._settings.get(CONF_ALLOW_BIND, False),
                         user_id=self._settings.get(CONF_USER_ID, 1),
                         now=dt_util.now(),
                         stop_event=stop_event,
+                        **identity_options,
                     )
             except AuthenticationError:
                 _LOGGER.warning(
@@ -356,13 +463,16 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             await asyncio.sleep(delay)
 
     async def async_prepare_reload(self) -> None:
+        """Pause discovery and wait for the current BLE session to stop."""
         self._paused = True
+        self._identity.cancel("reload")
         self._wake.set()
         if self._session_stop is not None:
             self._session_stop.set()
         await self._session_done.wait()
 
     async def async_select_profile(self, profile_id: str) -> None:
+        """Persist a manual profile selection after stopping the active session."""
         if profile_id not in self._profiles:
             raise ValueError("selected profile does not exist")
         async with self._selection_lock:
@@ -453,9 +563,13 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 status = "error"
             states[profile_id] = {"destination": record["destination"], "status": status}
             await self._commit(dict(self._readings), pending, states)
+        if success:
+            self._measurement_event(profile_id, record["measurement"], sync_status="synced")
 
     async def async_stop(self) -> None:
+        """Invalidate pending claims and stop the BLE and sync workers."""
         self._paused = True
+        self._identity.cancel("stopped")
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
