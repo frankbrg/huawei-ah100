@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
+_ISO_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+_FRENCH_DATE_RE = re.compile(r"^[0-9]{2}/[0-9]{2}/[0-9]{4}$")
 _MANUAL_DEVICE = "manual"
 
 
@@ -50,7 +52,7 @@ def _profile_schema(*, include_address: bool = False) -> probatio.Schema:
         fields[probatio.Required(CONF_ADDRESS)] = selector({"text": {"type": "text"}})
     fields.update(
         {
-            probatio.Required(CONF_BIRTH_DATE): selector({"date": {}}),
+            probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "text"}}),
             probatio.Required(CONF_HEIGHT): selector(
                 {"number": {"min": 1, "max": 255, "step": 1, "mode": "box"}}
             ),
@@ -86,9 +88,14 @@ def _as_date(value: Any) -> date | None:
     if not isinstance(value, str):
         return None
     try:
-        return date.fromisoformat(value)
+        if _ISO_DATE_RE.fullmatch(value):
+            return date.fromisoformat(value)
+        if _FRENCH_DATE_RE.fullmatch(value):
+            day, month, year = (int(part) for part in value.split("/"))
+            return date(year, month, day)
     except ValueError:
-        return None
+        pass
+    return None
 
 
 def _profile_errors(user_input: dict[str, Any], today: date | None = None) -> dict[str, str]:

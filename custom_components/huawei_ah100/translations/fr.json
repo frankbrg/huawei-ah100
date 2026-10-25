@@ -10,7 +10,7 @@
       "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
       "height_not_integer": "Saisissez une taille entière en centimètres.",
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
-      "invalid_birth_date": "Saisissez une date de naissance valide.",
+      "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
       "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
       "invalid_mac": "Saisissez une adresse MAC Bluetooth valide.",
       "invalid_sex": "Choisissez homme ou femme.",
@@ -22,18 +22,21 @@
       "bluetooth": {
         "data": {
           "allow_bind": "Autoriser l’association",
-          "birth_date": "Date de naissance",
+          "birth_date": "Date de naissance (JJ/MM/AAAA)",
           "height_cm": "Taille (cm)",
           "initial_weight_kg": "Poids initial indicatif (kg)",
           "sex": "Sexe",
           "user_id": "Identifiant utilisateur de la balance"
         },
         "data_description": {
-          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
-          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
-          "user_id": "Emplacement utilisateur à configurer sur la balance."
+          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
+          "sex": "Choisissez le sexe de la personne du profil.",
+          "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
+          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance."
         },
-        "description": "Fermez Huawei Health sur les téléphones proches avant la configuration. Saisissez les valeurs du profil ci-dessous.",
+        "description": "Saisissez les valeurs du profil ci-dessous. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "title": "Configurer la Huawei AH100 détectée"
       },
       "user": {
@@ -46,28 +49,31 @@
       },
       "select_device": {
         "title": "Choisir une balance Huawei à proximité",
-        "description": "Fermez Huawei Health sur les téléphones proches et réveillez la balance en montant dessus pendant la recherche Home Assistant. Sélectionnez la CH100 détectée ou choisissez Configuration manuelle pour saisir son adresse MAC.",
+        "description": "Fermez Huawei Health sur les téléphones proches et réveillez la balance en montant dessus pendant la recherche Home Assistant. Sélectionnez la balance CH100 détectée.",
         "data": {
           "address": "Balance CH100 à proximité"
         }
       },
       "manual": {
         "title": "Ajouter une balance Huawei AH100 manuellement",
-        "description": "Fermez Huawei Health sur les téléphones proches. Saisissez l’adresse MAC Bluetooth de la balance, puis les valeurs du profil.",
+        "description": "Saisissez l’adresse MAC Bluetooth de la balance et les valeurs du profil. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "data": {
           "address": "Adresse MAC Bluetooth",
           "allow_bind": "Autoriser l’association",
-          "birth_date": "Date de naissance",
+          "birth_date": "Date de naissance (JJ/MM/AAAA)",
           "height_cm": "Taille (cm)",
           "initial_weight_kg": "Poids initial indicatif (kg)",
           "sex": "Sexe",
           "user_id": "Identifiant utilisateur de la balance"
         },
         "data_description": {
-          "address": "Utilisez la configuration manuelle si la recherche Bluetooth à proximité ne trouve pas la balance.",
-          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
-          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure. La balance peut être en veille pendant la configuration.",
-          "user_id": "Emplacement utilisateur à configurer sur la balance."
+          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
+          "sex": "Choisissez le sexe de la personne du profil.",
+          "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
+          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance.",
+          "address": "Saisissez l’adresse MAC Bluetooth de la balance uniquement pour la configuration manuelle."
         }
       }
     }
@@ -78,7 +84,7 @@
       "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
       "height_not_integer": "Saisissez une taille entière en centimètres.",
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
-      "invalid_birth_date": "Saisissez une date de naissance valide.",
+      "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
       "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
       "invalid_sex": "Choisissez homme ou femme.",
       "invalid_user_id": "L’identifiant utilisateur doit être compris entre 0 et 255.",
@@ -89,18 +95,21 @@
       "init": {
         "data": {
           "allow_bind": "Autoriser l’association",
-          "birth_date": "Date de naissance",
+          "birth_date": "Date de naissance (JJ/MM/AAAA)",
           "height_cm": "Taille (cm)",
           "initial_weight_kg": "Poids initial indicatif (kg)",
           "sex": "Sexe",
           "user_id": "Identifiant utilisateur de la balance"
         },
         "data_description": {
-          "allow_bind": "Activez cette option uniquement si la balance doit être associée à Home Assistant. Cela peut modifier une association existante.",
-          "initial_weight_kg": "Cette valeur sert d’indication pour le profil envoyé à la balance, pas de mesure.",
-          "user_id": "Emplacement utilisateur à configurer sur la balance."
+          "allow_bind": "Activez cette option lors de la première configuration si cet adaptateur Home Assistant n’a pas été autorisé par la balance. L’association peut modifier celle déjà enregistrée ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
+          "sex": "Choisissez le sexe de la personne du profil.",
+          "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
+          "user_id": "Gardez la valeur par défaut 1, sauf si vous savez que ce profil utilise un autre emplacement de la balance."
         },
-        "description": "Fermez Huawei Health sur les téléphones proches avant d’utiliser la balance. L’association reste désactivée tant que vous ne l’activez pas.",
+        "description": "Modifiez le profil utilisateur de la balance. L’association reste désactivée sauf si vous l’activez.",
         "title": "Options Huawei AH100"
       }
     }

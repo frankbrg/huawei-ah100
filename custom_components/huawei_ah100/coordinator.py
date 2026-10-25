@@ -103,6 +103,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, Any] | None]):
                     max_attempts=2,
                     ble_device_callback=self._get_device,
                     timeout=15,
+                    use_services_cache=False,
                 )
                 profile = {key: self._settings[key] for key in PROFILE_KEYS}
                 if self.data is not None:
@@ -130,7 +131,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, Any] | None]):
                 ValueError,
                 RuntimeError,
             ) as err:
-                _LOGGER.debug("Scale session ended: %s", type(err).__name__)
+                _LOGGER.debug("Scale session ended: %s", type(err).__name__, exc_info=True)
             finally:
                 if client is not None:
                     with suppress(BleakError, ConnectionError, TimeoutError, OSError):

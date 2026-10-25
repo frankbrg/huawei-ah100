@@ -10,7 +10,7 @@
       "future_birth_date": "The birth date cannot be in the future.",
       "height_not_integer": "Enter height as a whole number of centimeters.",
       "invalid_allow_bind": "Choose whether pairing is allowed.",
-      "invalid_birth_date": "Enter a valid birth date.",
+      "invalid_birth_date": "Enter a valid date in YYYY-MM-DD format.",
       "invalid_height": "Height must be between 1 and 255 cm.",
       "invalid_mac": "Enter a valid Bluetooth MAC address.",
       "invalid_sex": "Choose male or female.",
@@ -22,18 +22,21 @@
       "bluetooth": {
         "data": {
           "allow_bind": "Allow pairing or binding",
-          "birth_date": "Birth date",
+          "birth_date": "Birth date (YYYY-MM-DD)",
           "height_cm": "Height (cm)",
           "initial_weight_kg": "Initial weight hint (kg)",
           "sex": "Sex",
           "user_id": "Scale user ID"
         },
         "data_description": {
-          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
-          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
-          "user_id": "The scale user slot to configure."
+          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
+          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+          "height_cm": "Enter the profile user’s height in whole centimeters.",
+          "sex": "Select the profile user’s sex.",
+          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
+          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot."
         },
-        "description": "Close Huawei Health on nearby phones before setup. Enter the profile values below.",
+        "description": "Enter the profile values below. After submitting, close Huawei Health, step onto the scale barefoot, and stand still until the weighing finishes. Sensors populate after Home Assistant receives an actual measurement.",
         "title": "Set up the discovered Huawei AH100"
       },
       "user": {
@@ -46,28 +49,31 @@
       },
       "select_device": {
         "title": "Choose a nearby Huawei scale",
-        "description": "Close Huawei Health on nearby phones and wake the scale by stepping on it while Home Assistant searches. Select the nearby CH100, or choose Manual setup to enter its MAC address.",
+        "description": "Close Huawei Health on nearby phones and wake the scale by stepping on it while Home Assistant searches. Select the nearby CH100 scale.",
         "data": {
           "address": "Nearby CH100 scale"
         }
       },
       "manual": {
         "title": "Add a Huawei AH100 scale manually",
-        "description": "Close Huawei Health on nearby phones. Enter the scale Bluetooth MAC address and profile values.",
+        "description": "Enter the scale Bluetooth MAC address and profile values. After submitting, close Huawei Health, step onto the scale barefoot, and stand still until the weighing finishes. Sensors populate after Home Assistant receives an actual measurement.",
         "data": {
           "address": "Bluetooth MAC address",
           "allow_bind": "Allow pairing or binding",
-          "birth_date": "Birth date",
+          "birth_date": "Birth date (YYYY-MM-DD)",
           "height_cm": "Height (cm)",
           "initial_weight_kg": "Initial weight hint (kg)",
           "sex": "Sex",
           "user_id": "Scale user ID"
         },
         "data_description": {
-          "address": "Use manual setup if the nearby Bluetooth search does not find the scale.",
-          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
-          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement. The scale may be asleep during setup.",
-          "user_id": "The scale user slot to configure."
+          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
+          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+          "height_cm": "Enter the profile user’s height in whole centimeters.",
+          "sex": "Select the profile user’s sex.",
+          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
+          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot.",
+          "address": "Enter the scale Bluetooth MAC address only when using manual setup."
         }
       }
     }
@@ -78,7 +84,7 @@
       "future_birth_date": "The birth date cannot be in the future.",
       "height_not_integer": "Enter height as a whole number of centimeters.",
       "invalid_allow_bind": "Choose whether pairing is allowed.",
-      "invalid_birth_date": "Enter a valid birth date.",
+      "invalid_birth_date": "Enter a valid date in YYYY-MM-DD format.",
       "invalid_height": "Height must be between 1 and 255 cm.",
       "invalid_sex": "Choose male or female.",
       "invalid_user_id": "The user ID must be from 0 to 255.",
@@ -89,18 +95,21 @@
       "init": {
         "data": {
           "allow_bind": "Allow pairing or binding",
-          "birth_date": "Birth date",
+          "birth_date": "Birth date (YYYY-MM-DD)",
           "height_cm": "Height (cm)",
           "initial_weight_kg": "Initial weight hint (kg)",
           "sex": "Sex",
           "user_id": "Scale user ID"
         },
         "data_description": {
-          "allow_bind": "Enable only if the scale must be bound to Home Assistant. This may change an existing association.",
-          "initial_weight_kg": "This is a profile hint sent to the scale, not a measurement.",
-          "user_id": "The scale user slot to configure."
+          "allow_bind": "Enable for first setup if this Home Assistant adapter has not been authorized by the scale. Binding can change the existing association; leave this off if the adapter is already authorized.",
+          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+          "height_cm": "Enter the profile user’s height in whole centimeters.",
+          "sex": "Select the profile user’s sex.",
+          "initial_weight_kg": "A starting value for the scale profile only; it is not a measurement or sensor reading.",
+          "user_id": "Leave the default 1 unless you know this profile uses a different scale user slot."
         },
-        "description": "Close Huawei Health on nearby phones before using the scale. Pairing remains off unless you enable it.",
+        "description": "Update the scale user profile. Pairing remains off unless you enable it.",
         "title": "Huawei AH100 options"
       }
     }

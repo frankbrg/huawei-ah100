@@ -163,14 +163,25 @@ async def test_identical_advertisements_wake_listener_and_unload_removes_observe
         manager.async_stop()
 
 
-async def test_disconnect_preserves_pending_durable_save(coordinator, monkeypatch):
+async def test_disconnect_preserves_pending_durable_save_with_partial_service_cache(
+    coordinator, monkeypatch
+):
     monkeypatch.setattr(session, "SLEEP_GRACE_SECONDS", 0.01)
     monkeypatch.setattr(session, "DISCONNECT_POLL_SECONDS", 0.001)
     mac = bytes.fromhex(coordinator.address.replace(":", ""))
     client = Mock(is_connected=True)
-    client.services.get_characteristic.side_effect = lambda uuid: SimpleNamespace(
-        uuid=uuid, properties=("write", "notify")
-    )
+    full_service_tree = {session.TX_UUID, session.RX_UUID}
+    partial_cached_tree = {"00002a19-0000-1000-8000-00805f9b34fb"}
+
+    def get_characteristic(uuid):
+        return (
+            SimpleNamespace(uuid=uuid, properties=("write", "notify"))
+            if uuid in available_services
+            else None
+        )
+
+    available_services = partial_cached_tree
+    client.services.get_characteristic.side_effect = get_characteristic
     subscribed = asyncio.Event()
     configured = asyncio.Event()
     save_entered = asyncio.Event()
@@ -198,8 +209,13 @@ async def test_disconnect_preserves_pending_durable_save(coordinator, monkeypatc
             configured.set()
 
     async def establish(*_args, **kwargs):
-        nonlocal disconnect_callback
+        nonlocal available_services, disconnect_callback
         disconnect_callback = kwargs.get("disconnected_callback")
+        available_services = (
+            partial_cached_tree
+            if kwargs.get("use_services_cache", True)
+            else full_service_tree
+        )
         return client
 
     async def save(_payload):

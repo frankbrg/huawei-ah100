@@ -90,6 +90,7 @@ def test_user_schema_defaults_and_stores_canonical_profile() -> None:
 
     assert user_input[CONF_USER_ID] == 1.0
     assert user_input[CONF_ALLOW_BIND] is False
+    assert USER_SCHEMA.schema[CONF_BIRTH_DATE].config["type"] == "text"
     assert _profile_errors(user_input, date(2026, 10, 25)) == {}
     assert _profile_data(user_input) == {
         CONF_BIRTH_DATE: "2000-01-02",
@@ -99,6 +100,46 @@ def test_user_schema_defaults_and_stores_canonical_profile() -> None:
         CONF_USER_ID: 1,
         CONF_ALLOW_BIND: False,
     }
+
+
+@pytest.mark.parametrize(
+    ("birth_date", "canonical"),
+    [
+        ("2000-01-02", "2000-01-02"),
+        ("02/01/2000", "2000-01-02"),
+        ("01/02/2000", "2000-02-01"),
+        ("29/02/2024", "2024-02-29"),
+    ],
+)
+def test_birth_date_formats_store_iso(birth_date: str, canonical: str) -> None:
+    user_input = USER_SCHEMA(_profile_input(address="AA:BB:CC:DD:EE:FF", birth_date=birth_date))
+
+    assert _profile_errors(user_input, date(2026, 10, 25)) == {}
+    assert _profile_data(user_input)[CONF_BIRTH_DATE] == canonical
+
+
+@pytest.mark.parametrize(
+    "birth_date",
+    [
+        "29/02/2023",
+        "2023-02-29",
+        "1/02/2000",
+        "01-02-2000",
+        "01/02/03",
+        "2000-2-01",
+        " 2000-01-02",
+    ],
+)
+def test_birth_date_rejects_invalid_or_malformed_values(birth_date: str) -> None:
+    assert _profile_errors(
+        {**_profile_input(), CONF_BIRTH_DATE: birth_date}, date(2026, 10, 25)
+    ) == {CONF_BIRTH_DATE: "invalid_birth_date"}
+
+
+def test_french_birth_date_still_rejects_future_dates() -> None:
+    assert _profile_errors(
+        {**_profile_input(), CONF_BIRTH_DATE: "26/10/2026"}, date(2026, 10, 25)
+    ) == {CONF_BIRTH_DATE: "future_birth_date"}
 
 
 @pytest.mark.parametrize(
@@ -378,5 +419,6 @@ async def test_options_flow_changes_profile_without_exposing_mac() -> None:
     assert all(key.schema != CONF_ADDRESS for key in OPTIONS_SCHEMA.schema)
     assert result["type"] == "create_entry"
     assert CONF_ADDRESS not in result["data"]
+    assert result["data"][CONF_BIRTH_DATE] == "2000-01-02"
     assert result["data"][CONF_USER_ID] == 2
     assert result["data"][CONF_ALLOW_BIND] is True
