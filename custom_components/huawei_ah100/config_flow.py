@@ -48,7 +48,8 @@ _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
 _ISO_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-_FRENCH_DATE_RE = re.compile(r"^[0-9]{2}/[0-9]{2}/[0-9]{4}$")
+_FRENCH_DATE_RE = re.compile(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$")
+_GERMAN_DATE_RE = re.compile(r"^[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4}$")
 _MANUAL_DEVICE = "manual"
 
 
@@ -134,11 +135,15 @@ def _as_date(value: Any) -> date | None:
         return value
     if not isinstance(value, str):
         return None
+    value = value.strip()
     try:
         if _ISO_DATE_RE.fullmatch(value):
             return date.fromisoformat(value)
         if _FRENCH_DATE_RE.fullmatch(value):
             day, month, year = (int(part) for part in value.split("/"))
+            return date(year, month, day)
+        if _GERMAN_DATE_RE.fullmatch(value):
+            day, month, year = (int(part) for part in value.split("."))
             return date(year, month, day)
     except ValueError:
         pass
@@ -312,6 +317,13 @@ def _profile_data(
     return data
 
 
+def _form_suggestions(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return the entered values so a form keeps them after a validation error."""
+    suggestions = dict(user_input or {})
+    suggestions.pop(CONF_SPARKY_API_KEY, None)
+    return suggestions
+
+
 def _device_schema(devices: dict[str, str]) -> probatio.Schema:
     options = [
         {"value": address, "label": f"{name.strip()} ({address})"}
@@ -400,7 +412,13 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 return await self._async_create_entry(address, user_input)
 
-        return self.async_show_form(step_id="manual", data_schema=USER_SCHEMA, errors=errors)
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=self.add_suggested_values_to_schema(
+                USER_SCHEMA, _form_suggestions(user_input)
+            ),
+            errors=errors,
+        )
 
     async def _async_create_entry(
         self, address: str, user_input: dict[str, Any]
@@ -431,7 +449,11 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = _initial_errors(discovery_info)
             if errors:
                 return self.async_show_form(
-                    step_id="bluetooth", data_schema=BLUETOOTH_SCHEMA, errors=errors
+                    step_id="bluetooth",
+                    data_schema=self.add_suggested_values_to_schema(
+                        BLUETOOTH_SCHEMA, _form_suggestions(discovery_info)
+                    ),
+                    errors=errors,
                 )
             return await self._async_create_entry(address, discovery_info)
 
@@ -480,12 +502,10 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                     unique_id=None,
                 )
 
-        suggestions = dict(user_input or {})
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _profile_schema(name_default=name_default), suggestions
+                _profile_schema(name_default=name_default), _form_suggestions(user_input)
             ),
             errors=errors,
         )
@@ -523,10 +543,9 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                     title=name,
                 )
 
-        suggestions = {**subentry.data, CONF_NAME: subentry.title}
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
-        suggestions.update(user_input or {})
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        suggestions = _form_suggestions(
+            {**subentry.data, CONF_NAME: subentry.title, **(user_input or {})}
+        )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(PROFILE_SCHEMA, suggestions),
