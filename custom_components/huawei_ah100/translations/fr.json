@@ -47,7 +47,7 @@
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
           "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
@@ -94,7 +94,7 @@
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
           "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
@@ -130,8 +130,8 @@
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
           "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse.",
-          "weight_plausibility_check": "Compare chaque pesée à la dernière pesée du profil datant de moins de 30 jours. Écart admis : 10 % si la proximité du téléphone ou une confirmation a choisi le profil, 5 % sinon, 10 % par rapport au poids initial indicatif avant la première pesée. En cas d’écart, la pesée est attribuée au seul autre profil à moins de 5 %, sans masse grasse, car la balance l’a calculée avec le mauvais profil. Sinon, la pesée est ignorée et huawei_ah100_measurement_rejected est émis.",
-          "proximity_profile_selection": "Au réveil de la balance, si exactement un téléphone de profil est proche du scanner Bluetooth qui capte le mieux la balance, ce profil est utilisé. Sinon, le profil actif ou la demande de confirmation s’applique comme avant.",
+          "weight_plausibility_check": "Compare chaque pesée à la dernière pesée du profil datant de moins de 30 jours. Écart admis : 10 % si la proximité du téléphone ou une confirmation a choisi le profil, 5 % pour une sélection directe, 10 % par rapport au poids initial indicatif avant la première pesée. En cas d’écart, la pesée est attribuée au seul autre profil à moins de 5 %, sans masse grasse, car la balance l’a calculée avec le mauvais profil. Sinon, la pesée est ignorée et huawei_ah100_measurement_rejected est émis.",
+          "proximity_profile_selection": "Au réveil de la balance, si exactement un téléphone de profil est proche du scanner Bluetooth qui capte le mieux la balance, ce profil est utilisé. Sinon, la sélection directe, la demande de confirmation ou le poids décide.",
           "proximity_rssi_threshold": "Puissance de signal minimale du téléphone au scanner de la balance. Aidez-vous du capteur de diagnostic Signal du téléphone du profil ; plus proche signifie plus fort, par exemple -55 dBm au lieu de -75 dBm."
         }
       }
@@ -212,7 +212,7 @@
       "step": {
         "user": {
           "title": "Ajouter un profil de balance",
-          "description": "Créez un profil distinct pour une personne. Sélectionnez-le comme profil actif avant la pesée.",
+          "description": "Créez un profil distinct pour une personne. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
             "birth_date": "Date de naissance (JJ/MM/AAAA)",
@@ -231,7 +231,7 @@
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
@@ -240,7 +240,7 @@
         },
         "reconfigure": {
           "title": "Modifier le profil de balance",
-          "description": "Modifiez les réglages de ce profil. Sélectionnez-le comme profil actif avant la pesée.",
+          "description": "Modifiez les réglages de ce profil. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
             "birth_date": "Date de naissance (JJ/MM/AAAA)",
@@ -259,7 +259,7 @@
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas.",

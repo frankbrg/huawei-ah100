@@ -1,0 +1,314 @@
+{
+  "config": {
+    "abort": {
+      "invalid_address": "Das gefundene Gerät hat eine ungültige Bluetooth-Adresse.",
+      "unsupported_device": "Das gefundene Bluetooth-Gerät ist keine verbindbare CH100-Waage.",
+      "already_configured": "Diese Waage ist bereits eingerichtet."
+    },
+    "error": {
+      "age_out_of_range": "Das Alter im Profil darf höchstens 127 Jahre betragen.",
+      "future_birth_date": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
+      "height_not_integer": "Gib die Körpergröße als ganze Zahl in Zentimetern ein.",
+      "invalid_allow_bind": "Wähle, ob die Kopplung erlaubt ist.",
+      "invalid_birth_date": "Gib ein gültiges Datum im Format JJJJ-MM-TT ein.",
+      "invalid_height": "Die Körpergröße muss zwischen 1 und 255 cm liegen.",
+      "invalid_mac": "Gib eine gültige Bluetooth-MAC-Adresse ein.",
+      "invalid_name": "Gib einen Profilnamen ein.",
+      "invalid_person": "Wähle eine gültige Home-Assistant-Person.",
+      "invalid_sex": "Wähle männlich oder weiblich.",
+      "invalid_sparky_api_key": "Der API-Schlüssel darf keine Zeilenumbrüche enthalten.",
+      "invalid_sparky_enabled": "Wähle, ob die SparkyFitness-Synchronisierung aktiviert ist.",
+      "invalid_sparky_url": "Gib eine gültige Stamm-URL des SparkyFitness-Servers ein.",
+      "invalid_user_id": "Die Benutzer-ID der Waage muss zwischen 0 und 255 liegen.",
+      "invalid_weight": "Das Startgewicht muss größer als 0 und höchstens 300 kg sein.",
+      "missing_sparky_api_key": "Gib einen API-Schlüssel für das gewählte SparkyFitness-Konto ein.",
+      "user_id_not_integer": "Die Benutzer-ID muss eine ganze Zahl sein."
+    },
+    "step": {
+      "bluetooth": {
+        "title": "Gefundene Huawei AH100 einrichten",
+        "description": "Richte unten das erste Profil und die gemeinsamen Verbindungsoptionen der Waage ein. Schließe danach Huawei Health, wiege dich barfuß und bleib still stehen, bis die Waage fertig ist. Die Sensoren erhalten Werte, sobald Home Assistant eine echte Messung empfangen hat.",
+        "data": {
+          "name": "Profilname",
+          "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+          "height_cm": "Körpergröße (cm)",
+          "sex": "Geschlecht",
+          "initial_weight_kg": "Startgewicht als Hinweis (kg)",
+          "person_entity_id": "Home-Assistant-Person (optional)",
+          "sparky_enabled": "Neue Messungen an SparkyFitness senden",
+          "sparky_url": "SparkyFitness-Server-URL",
+          "sparky_api_key": "SparkyFitness-API-Schlüssel",
+          "user_id": "Benutzer-ID der Waage",
+          "allow_bind": "Kopplung bzw. Bindung erlauben"
+        },
+        "data_description": {
+          "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
+          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+          "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
+          "sex": "Wähle das Geschlecht der Person.",
+          "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
+          "person_entity_id": "Optionale Home-Assistant-Person, die nur als Zusatzinformation angezeigt wird. Sie wählt kein Profil und authentifiziert niemanden.",
+          "sparky_enabled": "Wenn aktiviert, werden neue Live-Gewichtswerte und vorhandene Körperfettwerte an das unten angegebene Konto gesendet. Der Starthinweis und der gespeicherte Verlauf werden nicht gesendet.",
+          "sparky_url": "Gib nur die Stamm-URL des Servers ein, ohne API-Pfad.",
+          "sparky_api_key": "Erstelle in diesem SparkyFitness-Konto einen Schlüssel mit der Berechtigung health_data_write. Verwende den Schlüssel des Kontos, das zu diesem Profil gehört.",
+          "user_id": "Erweiterter, für alle Profile gemeinsamer Benutzerplatz der Waage auf Protokollebene. Belasse den Standardwert 1, sofern du nicht weißt, dass ein anderer Platz nötig ist.",
+          "allow_bind": "Nur aktivieren, wenn dieser Adapter von der Waage nicht autorisiert ist und eine Bindung nötig ist. Eine Bindung kann die bestehende Zuordnung ändern; deaktiviert lassen, wenn bereits autorisiert."
+        }
+      },
+      "user": {
+        "title": "Huawei-Waage in der Nähe suchen",
+        "description": "Es wurde keine verbindbare CH100-Waage in der Nähe gefunden. Wecke die Waage auf und versuche es erneut, oder wähle Manuelle Einrichtung, um ihre Bluetooth-MAC-Adresse einzugeben.",
+        "menu_options": {
+          "scan_again": "Erneut suchen",
+          "manual": "Manuelle Einrichtung"
+        }
+      },
+      "select_device": {
+        "title": "Huawei-Waage in der Nähe auswählen",
+        "description": "Schließe Huawei Health auf Handys in der Nähe und stell dich kurz auf die Waage, um sie aufzuwecken. Wähle die verbindbare CH100-Waage.",
+        "data": {
+          "address": "CH100-Waage in der Nähe"
+        }
+      },
+      "manual": {
+        "title": "Huawei-AH100-Waage manuell hinzufügen",
+        "description": "Gib die Bluetooth-MAC-Adresse der Waage ein und richte dann das erste Profil und die gemeinsamen Verbindungsoptionen ein. Schließe danach Huawei Health, wiege dich barfuß und bleib still stehen, bis die Waage fertig ist. Die Sensoren erhalten Werte, sobald Home Assistant eine echte Messung empfangen hat.",
+        "data": {
+          "address": "Bluetooth-MAC-Adresse",
+          "name": "Profilname",
+          "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+          "height_cm": "Körpergröße (cm)",
+          "sex": "Geschlecht",
+          "initial_weight_kg": "Startgewicht als Hinweis (kg)",
+          "person_entity_id": "Home-Assistant-Person (optional)",
+          "sparky_enabled": "Neue Messungen an SparkyFitness senden",
+          "sparky_url": "SparkyFitness-Server-URL",
+          "sparky_api_key": "SparkyFitness-API-Schlüssel",
+          "user_id": "Benutzer-ID der Waage",
+          "allow_bind": "Kopplung bzw. Bindung erlauben"
+        },
+        "data_description": {
+          "address": "Gib die Bluetooth-MAC-Adresse der Waage nur bei manueller Einrichtung ein.",
+          "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
+          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+          "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
+          "sex": "Wähle das Geschlecht der Person.",
+          "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
+          "person_entity_id": "Optionale Home-Assistant-Person, die nur als Zusatzinformation angezeigt wird. Sie wählt kein Profil und authentifiziert niemanden.",
+          "sparky_enabled": "Wenn aktiviert, werden neue Live-Gewichtswerte und vorhandene Körperfettwerte an das unten angegebene Konto gesendet. Der Starthinweis und der gespeicherte Verlauf werden nicht gesendet.",
+          "sparky_url": "Gib nur die Stamm-URL des Servers ein, ohne API-Pfad.",
+          "sparky_api_key": "Erstelle in diesem SparkyFitness-Konto einen Schlüssel mit der Berechtigung health_data_write. Verwende den Schlüssel des Kontos, das zu diesem Profil gehört.",
+          "user_id": "Erweiterter, für alle Profile gemeinsamer Benutzerplatz der Waage auf Protokollebene. Belasse den Standardwert 1, sofern du nicht weißt, dass ein anderer Platz nötig ist.",
+          "allow_bind": "Nur aktivieren, wenn dieser Adapter von der Waage nicht autorisiert ist und eine Bindung nötig ist. Eine Bindung kann die bestehende Zuordnung ändern; deaktiviert lassen, wenn bereits autorisiert."
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "invalid_allow_bind": "Wähle, ob die Kopplung erlaubt ist.",
+      "invalid_require_profile_confirmation": "Wähle, ob eine Profilbestätigung erforderlich ist.",
+      "invalid_user_id": "Die Benutzer-ID der Waage muss zwischen 0 und 255 liegen.",
+      "user_id_not_integer": "Die Benutzer-ID muss eine ganze Zahl sein.",
+      "invalid_proximity_enabled": "Wähle, ob die Handy-Nähe das Profil bestimmt.",
+      "invalid_proximity_rssi": "Der Schwellenwert muss eine ganze Zahl zwischen -100 und -30 dBm sein.",
+      "invalid_weight_check": "Wähle, ob das Gewicht geprüft wird."
+    },
+    "step": {
+      "init": {
+        "title": "Verbindungsoptionen der Waage",
+        "description": "Diese Einstellungen gelten für alle Profile dieser Waage.",
+        "data": {
+          "user_id": "Benutzer-ID der Waage",
+          "allow_bind": "Kopplung bzw. Bindung erlauben",
+          "require_profile_confirmation": "Profil bei jeder Wägung bestätigen lassen",
+          "weight_plausibility_check": "Prüfen, ob das Gewicht zum Profil passt",
+          "proximity_profile_selection": "Profil über Handy-Nähe wählen",
+          "proximity_rssi_threshold": "Signalschwelle für die Handy-Nähe"
+        },
+        "data_description": {
+          "user_id": "Erweiterter, für alle Profile gemeinsamer Benutzerplatz der Waage auf Protokollebene. Belasse den Standardwert 1, sofern du nicht weißt, dass ein anderer Platz nötig ist.",
+          "allow_bind": "Nur aktivieren, wenn dieser Adapter von der Waage nicht autorisiert ist und eine Bindung nötig ist. Eine Bindung kann die bestehende Zuordnung ändern; deaktiviert lassen, wenn bereits autorisiert.",
+          "require_profile_confirmation": "Wenn aktiviert, fragt die Waage beim Aufwachen Home-Assistant-Automationen, welches Profil sich gerade wiegt.",
+          "weight_plausibility_check": "Vergleicht jede Wägung mit der letzten Wägung des Profils aus den vergangenen 30 Tagen. Erlaubt sind 10 %, wenn Handy-Nähe oder eine Bestätigung das Profil bestimmt hat, 5 % bei direkter Auswahl und 10 % zum Startgewicht vor der ersten Wägung. Passt das Gewicht nicht, geht die Wägung ohne Körperfett an das einzige andere Profil innerhalb von 5 %, weil die Waage den Wert mit dem falschen Profil berechnet hat. Sonst wird die Wägung verworfen und huawei_ah100_measurement_rejected ausgelöst.",
+          "proximity_profile_selection": "Ist genau ein Profil-Handy in der Nähe des Bluetooth-Scanners, der die Waage am besten empfängt, wird dieses Profil verwendet. Sonst entscheiden die direkte Auswahl, die Bestätigungsanfrage oder das Gewicht.",
+          "proximity_rssi_threshold": "Mindestsignalstärke des Handys am Scanner der Waage. Wähle den Wert mithilfe des Diagnosesensors Handy-Signal des Profils; näher bedeutet stärker, zum Beispiel -55 dBm statt -75 dBm."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "body_fat": {
+        "name": "Körperfett"
+      },
+      "impedance": {
+        "name": "Impedanz"
+      },
+      "last_measurement": {
+        "name": "Letzte Messung"
+      },
+      "weight": {
+        "name": "Gewicht"
+      },
+      "sparky_sync": {
+        "name": "SparkyFitness-Synchronisierung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "pending": "Ausstehend",
+          "synced": "Synchronisiert",
+          "error": "Fehler"
+        }
+      },
+      "phone_signal": {
+        "name": "Handy-Signal"
+      },
+      "assigned_profile": {
+        "name": "Zugeordnetes Profil",
+        "state": {
+          "automatic": "Automatisch"
+        },
+        "state_attributes": {
+          "method": {
+            "name": "Methode",
+            "state": {
+              "selection": "Direkte Auswahl",
+              "confirmation": "Bestätigung",
+              "proximity": "Handy-Nähe"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "active_profile": {
+        "name": "Profil für nächste Wägung",
+        "state": {
+          "automatic": "Automatisch"
+        }
+      }
+    }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Weiblich",
+        "male": "Männlich"
+      }
+    },
+    "nearby_scale": {
+      "options": {
+        "manual": "Manuelle Einrichtung"
+      }
+    }
+  },
+  "config_subentries": {
+    "profile": {
+      "entry_type": "Waagenprofil",
+      "initiate_flow": {
+        "user": "Profil hinzufügen",
+        "reconfigure": "Profil bearbeiten"
+      },
+      "step": {
+        "user": {
+          "title": "Waagenprofil hinzufügen",
+          "description": "Lege ein eigenes Profil für eine Person an, die die Waage nutzt. Wähle es für die nächste Wägung aus oder lass die Waage es automatisch zuordnen.",
+          "data": {
+            "name": "Profilname",
+            "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+            "height_cm": "Körpergröße (cm)",
+            "sex": "Geschlecht",
+            "initial_weight_kg": "Startgewicht als Hinweis (kg)",
+            "person_entity_id": "Home-Assistant-Person (optional)",
+            "sparky_enabled": "Neue Messungen an SparkyFitness senden",
+            "sparky_url": "SparkyFitness-Server-URL",
+            "sparky_api_key": "SparkyFitness-API-Schlüssel",
+            "phone_beacon_uuids": "iBeacon-UUIDs der Handys (optional)"
+          },
+          "data_description": {
+            "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
+            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+            "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
+            "sex": "Wähle das Geschlecht der Person.",
+            "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
+            "person_entity_id": "Optionale Home-Assistant-Person, die nur als Zusatzinformation angezeigt wird. Sie wählt kein Profil und authentifiziert niemanden.",
+            "sparky_enabled": "Wenn aktiviert, werden neue Live-Gewichtswerte und vorhandene Körperfettwerte an das unten angegebene Konto gesendet. Der Starthinweis und der gespeicherte Verlauf werden nicht gesendet.",
+            "sparky_url": "Gib nur die Stamm-URL des Servers ein, ohne API-Pfad.",
+            "sparky_api_key": "Erstelle in diesem SparkyFitness-Konto einen Schlüssel mit der Berechtigung health_data_write. Verwende den Schlüssel des Kontos, das zu diesem Profil gehört.",
+            "phone_beacon_uuids": "Wähle ein Gerät, das Home Assistant gerade sieht (stärkstes Signal zuerst; stell dich mit dem Handy neben die Waage und öffne dann diesen Dialog), oder gib eine UUID ein, zum Beispiel vom BLE-Sender der Home-Assistant-Companion-App. Ein Eintrag pro Gerät. Wird nur verwendet, wenn die automatische Profilwahl über die Handy-Nähe in den Optionen der Waage aktiviert ist."
+          }
+        },
+        "reconfigure": {
+          "title": "Waagenprofil bearbeiten",
+          "description": "Ändere die Einstellungen dieses Profils. Wähle es für die nächste Wägung aus oder lass die Waage es automatisch zuordnen.",
+          "data": {
+            "name": "Profilname",
+            "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+            "height_cm": "Körpergröße (cm)",
+            "sex": "Geschlecht",
+            "initial_weight_kg": "Startgewicht als Hinweis (kg)",
+            "person_entity_id": "Home-Assistant-Person (optional)",
+            "sparky_enabled": "Neue Messungen an SparkyFitness senden",
+            "sparky_url": "SparkyFitness-Server-URL",
+            "sparky_api_key": "SparkyFitness-API-Schlüssel",
+            "phone_beacon_uuids": "iBeacon-UUIDs der Handys (optional)"
+          },
+          "data_description": {
+            "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
+            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+            "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
+            "sex": "Wähle das Geschlecht der Person.",
+            "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
+            "person_entity_id": "Optionale Home-Assistant-Person, die nur als Zusatzinformation angezeigt wird. Sie wählt kein Profil und authentifiziert niemanden.",
+            "sparky_enabled": "Wenn aktiviert, werden neue Live-Gewichtswerte und vorhandene Körperfettwerte an das unten angegebene Konto gesendet. Der Starthinweis und der gespeicherte Verlauf werden nicht gesendet.",
+            "sparky_url": "Gib nur die Stamm-URL des Servers ein, ohne API-Pfad.",
+            "sparky_api_key": "Erstelle in diesem SparkyFitness-Konto einen Schlüssel mit der Berechtigung health_data_write. Verwende den Schlüssel des Kontos, das zu diesem Profil gehört. Leer lassen, um den gespeicherten Schlüssel zu behalten; Home Assistant füllt ihn nicht vor.",
+            "phone_beacon_uuids": "Wähle ein Gerät, das Home Assistant gerade sieht (stärkstes Signal zuerst; stell dich mit dem Handy neben die Waage und öffne dann diesen Dialog), oder gib eine UUID ein, zum Beispiel vom BLE-Sender der Home-Assistant-Companion-App. Ein Eintrag pro Gerät. Wird nur verwendet, wenn die automatische Profilwahl über die Handy-Nähe in den Optionen der Waage aktiviert ist."
+          }
+        }
+      },
+      "error": {
+        "age_out_of_range": "Das Alter im Profil darf höchstens 127 Jahre betragen.",
+        "future_birth_date": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
+        "height_not_integer": "Gib die Körpergröße als ganze Zahl in Zentimetern ein.",
+        "invalid_birth_date": "Gib ein gültiges Datum im Format JJJJ-MM-TT ein.",
+        "invalid_height": "Die Körpergröße muss zwischen 1 und 255 cm liegen.",
+        "invalid_name": "Gib einen Profilnamen ein.",
+        "invalid_person": "Wähle eine gültige Home-Assistant-Person.",
+        "invalid_sex": "Wähle männlich oder weiblich.",
+        "invalid_sparky_api_key": "Der API-Schlüssel darf keine Zeilenumbrüche enthalten.",
+        "invalid_sparky_enabled": "Wähle, ob die SparkyFitness-Synchronisierung aktiviert ist.",
+        "invalid_sparky_url": "Gib eine gültige Stamm-URL des SparkyFitness-Servers ein.",
+        "invalid_weight": "Das Startgewicht muss größer als 0 und höchstens 300 kg sein.",
+        "missing_sparky_api_key": "Gib einen API-Schlüssel für das gewählte SparkyFitness-Konto ein.",
+        "duplicate_profile_name": "Ein Profil mit diesem Namen gibt es bereits.",
+        "invalid_beacon_uuid": "Jeder Eintrag muss eine gültige UUID sein, zum Beispiel e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Ein anderes Profil verwendet bereits eine dieser UUIDs."
+      }
+    }
+  },
+  "services": {
+    "claim_weighing": {
+      "name": "Wägung zuordnen",
+      "description": "Bestätigt für eine offene Anfrage, welches Profil sich gerade wiegt.",
+      "fields": {
+        "entry_id": {
+          "name": "Konfigurationseintrag-ID",
+          "description": "ID des Konfigurationseintrags der Huawei-AH100-Waage."
+        },
+        "request_id": {
+          "name": "Anfrage-ID",
+          "description": "ID der offenen Bestätigungsanfrage für die Wägung."
+        },
+        "profile_id": {
+          "name": "Profil-ID",
+          "description": "ID des Profils, das sich gerade wiegt."
+        },
+        "claimant_user_id": {
+          "name": "Home-Assistant-Benutzer-ID des Bestätigenden",
+          "description": "Bei einer Benachrichtigung mit Aktionen die Benutzer-ID aus dem Kontext des ursprünglichen Events übergeben. Für vertrauenswürdige automatische Zuordnung leer lassen."
+        }
+      }
+    }
+  }
+}
