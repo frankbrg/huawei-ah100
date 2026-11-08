@@ -213,7 +213,7 @@
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
-            "phone_beacon_uuids": "UUIDs broadcast by this person’s phones or tags, for example by the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
+            "phone_beacon_uuids": "Pick a device Home Assistant currently sees (strongest signal first; stand next to the scale with the phone, then open this dialog) or type a UUID, for example from the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         },
         "reconfigure": {
@@ -241,7 +241,7 @@
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it.",
-            "phone_beacon_uuids": "UUIDs broadcast by this person’s phones or tags, for example by the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
+            "phone_beacon_uuids": "Pick a device Home Assistant currently sees (strongest signal first; stand next to the scale with the phone, then open this dialog) or type a UUID, for example from the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         }
       },

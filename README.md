@@ -101,8 +101,8 @@ The integration emits `huawei_ah100_profile_confirmed` after accepting a claim a
 
 If each household member carries a phone that broadcasts an iBeacon, the scale can pick the profile on its own. The Home Assistant Companion app for Android can do this with its **BLE transmitter** sensor; any other iBeacon source works as well. The phone's Bluetooth address may change, so the integration identifies phones by their iBeacon UUID only.
 
-1. On each phone, turn on the iBeacon transmitter and note its UUID.
-2. Edit each profile and enter that UUID in **Phone iBeacon UUIDs**, one entry per device. A profile can have several UUIDs, for example a phone and a tag, but each UUID can belong to only one profile.
+1. On each phone, turn on the iBeacon transmitter.
+2. Stand next to the scale with the phone, edit the profile, and pick the device in **Phone iBeacon UUIDs**. The list shows the iBeacons Home Assistant currently sees, strongest signal first, with the scanner that receives them. It is filled when the dialog opens, so reopen it to refresh. You can also type a UUID, one entry per device. A profile can have several UUIDs, for example a phone and a tag, but each UUID can belong to only one profile.
 3. Enable the profile's **Phone signal** diagnostic sensor. It is disabled by default. It shows the strongest signal of that profile's devices at the Bluetooth scanner that receives the scale best, for example an ESPHome Bluetooth proxy in the bathroom. Readings older than 10 seconds are ignored.
 4. Stand at the scale with the phone where you usually carry it, and note the value. Then note the value from where other people usually are, for example the next room.
 5. In the scale's integration options, enable **Select profile by phone proximity** and set **Phone proximity signal threshold** between those two values. The default is -65 dBm.

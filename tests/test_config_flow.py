@@ -1,6 +1,7 @@
 from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
+from uuid import UUID
 
 import pytest
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
@@ -40,6 +41,22 @@ from custom_components.huawei_ah100.const import (
     DOMAIN,
     SUBENTRY_PROFILE,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_nearby_beacons(monkeypatch: pytest.MonkeyPatch) -> list[SimpleNamespace]:
+    advertisements: list[SimpleNamespace] = []
+    monkeypatch.setattr(
+        config_flow.bluetooth,
+        "async_discovered_service_info",
+        lambda _hass, connectable=True: list(advertisements),
+    )
+    monkeypatch.setattr(
+        config_flow.bluetooth,
+        "async_scanner_by_source",
+        lambda _hass, source: SimpleNamespace(name=f"{source} proxy") if source != "gone" else None,
+    )
+    return advertisements
 
 
 def _profile_input(**overrides: object) -> dict[str, object]:
@@ -888,3 +905,69 @@ async def test_profile_reconfigure_keeps_own_beacon_uuids_or_clears_them(
     assert result["type"] == "abort"
     data = flow.hass.config_entries.async_update_subentry.call_args.kwargs["data"]
     assert {key: data[key] for key in data if key == CONF_BEACON_UUIDS} == expected
+
+
+def _beacon_advertisement(beacon_uuid: str, rssi: int, source: str = "bath") -> SimpleNamespace:
+    return SimpleNamespace(
+        manufacturer_data={0x004C: b"\x02\x15" + UUID(beacon_uuid).bytes + b"\x00" * 5},
+        rssi=rssi,
+        source=source,
+    )
+
+
+def _suggested_values(result: dict[str, object]) -> dict[str, object]:
+    return {
+        key.schema: key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description and "suggested_value" in key.description
+    }
+
+
+def _beacon_choices(result: dict[str, object]) -> list[dict[str, str]]:
+    return next(
+        value.config["options"]
+        for key, value in result["data_schema"].schema.items()
+        if key.schema == CONF_BEACON_UUIDS
+    )
+
+
+async def test_profile_add_offers_nearby_beacons_strongest_first(
+    no_nearby_beacons: list[SimpleNamespace],
+) -> None:
+    taken = "00000000-0000-0000-0000-000000000001"
+    no_nearby_beacons.extend(
+        [
+            _beacon_advertisement(SECOND_BEACON_UUID, -80, "hall"),
+            _beacon_advertisement(BEACON_UUID, -70, "hall"),
+            _beacon_advertisement(BEACON_UUID, -52),
+            _beacon_advertisement(taken, -40),
+            _beacon_advertisement(SECOND_BEACON_UUID, -75, "gone"),
+            SimpleNamespace(manufacturer_data={0x004C: b"\x10\x05"}, rssi=-30, source="bath"),
+        ]
+    )
+    existing = _profile_subentry(
+        data={**_profile_data(_profile_input(), legacy_profile=True), CONF_BEACON_UUIDS: [taken]}
+    )
+    flow = _profile_flow(_profile_entry([existing]))
+
+    result = await flow.async_step_user()
+
+    assert _beacon_choices(result) == [
+        {"value": BEACON_UUID, "label": f"{BEACON_UUID} · -52 dBm · bath proxy"},
+        {"value": SECOND_BEACON_UUID, "label": f"{SECOND_BEACON_UUID} · -75 dBm · gone"},
+    ]
+
+
+async def test_profile_reconfigure_keeps_configured_beacon_choice_out_of_range() -> None:
+    subentry = _profile_subentry(
+        data={
+            **_profile_data(_profile_input(), legacy_profile=True),
+            CONF_BEACON_UUIDS: [BEACON_UUID],
+        }
+    )
+    flow = _profile_flow(_profile_entry([subentry]), reconfigure_subentry_id=subentry.subentry_id)
+
+    result = await flow.async_step_reconfigure()
+
+    assert _beacon_choices(result) == [{"value": BEACON_UUID, "label": BEACON_UUID}]
+    assert _suggested_values(result)[CONF_BEACON_UUIDS] == [BEACON_UUID]

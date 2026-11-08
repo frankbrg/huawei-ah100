@@ -17,7 +17,7 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
-from homeassistant.core import callback, split_entity_id
+from homeassistant.core import HomeAssistant, callback, split_entity_id
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import selector
 
@@ -42,7 +42,7 @@ from .const import (
     NAME,
     SUBENTRY_PROFILE,
 )
-from .proximity import normalize_beacon_uuid
+from .proximity import normalize_beacon_uuid, parse_ibeacon_uuid
 from .sparky import normalize_base_url
 
 if TYPE_CHECKING:
@@ -84,7 +84,7 @@ def _profile_schema(
     *,
     include_address: bool = False,
     include_connection: bool = False,
-    include_beacon: bool = False,
+    beacon_options: list[dict[str, str]] | None = None,
     name_default: str = DEFAULT_PROFILE_NAME,
 ) -> probatio.Schema:
     fields: dict[Any, Any] = {}
@@ -117,16 +117,23 @@ def _profile_schema(
             probatio.Optional(CONF_SPARKY_API_KEY): selector({"text": {"type": "password"}}),
         }
     )
-    if include_beacon:
+    if beacon_options is not None:
         fields[probatio.Optional(CONF_BEACON_UUIDS)] = selector(
-            {"text": {"type": "text", "multiple": True}}
+            {
+                "select": {
+                    "options": beacon_options,
+                    "multiple": True,
+                    "custom_value": True,
+                    "mode": "dropdown",
+                }
+            }
         )
     if include_connection:
         fields.update(_connection_fields())
     return probatio.Schema(fields)
 
 
-PROFILE_SCHEMA = _profile_schema(include_beacon=True)
+PROFILE_SCHEMA = _profile_schema(beacon_options=[])
 USER_SCHEMA = _profile_schema(include_address=True, include_connection=True)
 BLUETOOTH_SCHEMA = _profile_schema(include_connection=True)
 OPTIONS_SCHEMA = probatio.Schema(
@@ -348,6 +355,43 @@ def _beacon_errors(
     return {}
 
 
+def _beacon_options(
+    hass: HomeAssistant,
+    subentries: Mapping[str, Any],
+    selected: Any,
+    exclude_subentry_id: str | None = None,
+) -> list[dict[str, str]]:
+    """Offer the iBeacons Home Assistant currently sees, strongest first."""
+    taken = {
+        beacon_uuid
+        for subentry in subentries.values()
+        if subentry.subentry_type == SUBENTRY_PROFILE
+        and subentry.subentry_id != exclude_subentry_id
+        for beacon_uuid in subentry.data.get(CONF_BEACON_UUIDS, ())
+    }
+    nearby: dict[str, tuple[int, str]] = {}
+    for info in bluetooth.async_discovered_service_info(hass, connectable=False):
+        beacon_uuid = parse_ibeacon_uuid(info.manufacturer_data)
+        if beacon_uuid is None or beacon_uuid in taken:
+            continue
+        if beacon_uuid not in nearby or info.rssi > nearby[beacon_uuid][0]:
+            scanner = bluetooth.async_scanner_by_source(hass, info.source)
+            nearby[beacon_uuid] = (info.rssi, scanner.name if scanner else info.source)
+    options = [
+        {"value": beacon_uuid, "label": f"{beacon_uuid} · {rssi} dBm · {scanner_name}"}
+        for beacon_uuid, (rssi, scanner_name) in sorted(
+            nearby.items(), key=lambda item: item[1][0], reverse=True
+        )
+    ]
+    # Keep entries that are already chosen or typed visible even when they are out of range.
+    options.extend(
+        {"value": beacon_uuid, "label": beacon_uuid}
+        for beacon_uuid in _beacon_uuids(selected) or ()
+        if beacon_uuid not in nearby
+    )
+    return options
+
+
 def _initial_errors(user_input: dict[str, Any]) -> dict[str, str]:
     errors = _profile_errors(user_input)
     errors.update(_connection_errors(user_input))
@@ -561,7 +605,13 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _profile_schema(include_beacon=True, name_default=name_default), suggestions
+                _profile_schema(
+                    beacon_options=_beacon_options(
+                        self.hass, entry.subentries, suggestions.get(CONF_BEACON_UUIDS)
+                    ),
+                    name_default=name_default,
+                ),
+                suggestions,
             ),
             errors=errors,
         )
@@ -610,7 +660,17 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
         suggestions.pop(CONF_SPARKY_API_KEY, None)
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(PROFILE_SCHEMA, suggestions),
+            data_schema=self.add_suggested_values_to_schema(
+                _profile_schema(
+                    beacon_options=_beacon_options(
+                        self.hass,
+                        entry.subentries,
+                        suggestions.get(CONF_BEACON_UUIDS),
+                        exclude_subentry_id=subentry.subentry_id,
+                    )
+                ),
+                suggestions,
+            ),
             errors=errors,
         )
 

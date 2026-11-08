@@ -213,7 +213,7 @@
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
-            "phone_beacon_uuids": "UUID diffusés par les téléphones ou balises de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
+            "phone_beacon_uuids": "Choisissez un appareil que Home Assistant voit actuellement (signal le plus fort en premier ; placez-vous près de la balance avec le téléphone, puis ouvrez cette boîte de dialogue) ou saisissez un UUID, par exemple celui de l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         },
         "reconfigure": {
@@ -241,7 +241,7 @@
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas.",
-            "phone_beacon_uuids": "UUID diffusés par les téléphones ou balises de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
+            "phone_beacon_uuids": "Choisissez un appareil que Home Assistant voit actuellement (signal le plus fort en premier ; placez-vous près de la balance avec le téléphone, puis ouvrez cette boîte de dialogue) ou saisissez un UUID, par exemple celui de l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         }
       },
