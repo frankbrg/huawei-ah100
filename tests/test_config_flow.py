@@ -223,6 +223,11 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
         ("02/01/2000", "2000-01-02"),
         ("01/02/2000", "2000-02-01"),
         ("29/02/2024", "2024-02-29"),
+        ("1/02/2000", "2000-02-01"),
+        ("02.01.2000", "2000-01-02"),
+        ("2.1.2000", "2000-01-02"),
+        ("29.02.2024", "2024-02-29"),
+        (" 2000-01-02 ", "2000-01-02"),
     ],
 )
 def test_birth_date_formats_store_iso(birth_date: str, canonical: str) -> None:
@@ -237,11 +242,13 @@ def test_birth_date_formats_store_iso(birth_date: str, canonical: str) -> None:
     [
         "29/02/2023",
         "2023-02-29",
-        "1/02/2000",
+        "29.02.2023",
         "01-02-2000",
         "01/02/03",
+        "01.02.03",
+        "001.02.2000",
+        "01.02/2000",
         "2000-2-01",
-        " 2000-01-02",
     ],
 )
 def test_birth_date_rejects_invalid_or_malformed_values(birth_date: str) -> None:
@@ -250,9 +257,10 @@ def test_birth_date_rejects_invalid_or_malformed_values(birth_date: str) -> None
     ) == {CONF_BIRTH_DATE: "invalid_birth_date"}
 
 
-def test_french_birth_date_still_rejects_future_dates() -> None:
+@pytest.mark.parametrize("birth_date", ["26/10/2026", "26.10.2026"])
+def test_day_first_birth_date_still_rejects_future_dates(birth_date: str) -> None:
     assert _profile_errors(
-        {**_profile_input(), CONF_BIRTH_DATE: "26/10/2026"}, date(2026, 10, 25)
+        {**_profile_input(), CONF_BIRTH_DATE: birth_date}, date(2026, 10, 25)
     ) == {CONF_BIRTH_DATE: "future_birth_date"}
 
 
@@ -512,6 +520,52 @@ async def test_selected_device_duplicate_race_is_aborted(monkeypatch) -> None:
     )
     with pytest.raises(AbortFlow, match="already_configured"):
         await flow.async_step_select_device({CONF_ADDRESS: "AA:BB:CC:DD:EE:FF"})
+
+
+def _suggested_values(result: dict[str, object]) -> dict[str, object]:
+    return {
+        key.schema: key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description and "suggested_value" in key.description
+    }
+
+
+_INVALID_SETUP_INPUT = _profile_input(
+    birth_date="31.02.2000",
+    sparky_enabled=True,
+    sparky_url="https://sparky.example",
+    sparky_api_key="secret",
+)
+
+
+async def test_manual_setup_keeps_entered_values_after_validation_error() -> None:
+    flow = _configured_flow()
+
+    result = await flow.async_step_manual(
+        {**_INVALID_SETUP_INPUT, CONF_ADDRESS: "AA:BB:CC:DD:EE:FF"}
+    )
+
+    assert result["errors"] == {CONF_BIRTH_DATE: "invalid_birth_date"}
+    suggested = _suggested_values(result)
+    assert suggested[CONF_ADDRESS] == "AA:BB:CC:DD:EE:FF"
+    assert suggested[CONF_BIRTH_DATE] == "31.02.2000"
+    assert suggested[CONF_SPARKY_URL] == "https://sparky.example"
+    assert CONF_SPARKY_API_KEY not in suggested
+
+
+async def test_bluetooth_setup_keeps_entered_values_after_validation_error() -> None:
+    flow = _configured_flow()
+    flow.context = {"source": "bluetooth"}
+    await flow.async_step_bluetooth(_discovery("AA:BB:CC:DD:EE:FF"))
+
+    result = await flow.async_step_bluetooth(dict(_INVALID_SETUP_INPUT))
+
+    assert result["step_id"] == "bluetooth"
+    assert result["errors"] == {CONF_BIRTH_DATE: "invalid_birth_date"}
+    suggested = _suggested_values(result)
+    assert suggested[CONF_BIRTH_DATE] == "31.02.2000"
+    assert suggested[CONF_SPARKY_URL] == "https://sparky.example"
+    assert CONF_SPARKY_API_KEY not in suggested
 
 
 async def test_connectable_ch100_discovery_creates_entry_with_normalized_address() -> None:
@@ -924,14 +978,6 @@ def _beacon_advertisement(beacon_uuid: str, rssi: int, source: str = "bath") -> 
         rssi=rssi,
         source=source,
     )
-
-
-def _suggested_values(result: dict[str, object]) -> dict[str, object]:
-    return {
-        key.schema: key.description["suggested_value"]
-        for key in result["data_schema"].schema
-        if key.description and "suggested_value" in key.description
-    }
 
 
 def _beacon_choices(result: dict[str, object]) -> list[dict[str, str]]:
