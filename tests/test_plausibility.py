@@ -1,6 +1,11 @@
 import pytest
 
-from custom_components.huawei_ah100.plausibility import Outcome, WeightReference, check_weight
+from custom_components.huawei_ah100.plausibility import (
+    Outcome,
+    WeightReference,
+    check_weight,
+    matching_profiles,
+)
 
 REFERENCES = {
     "alice": WeightReference(60.0),
@@ -39,3 +44,16 @@ def test_two_fitting_profiles_are_ambiguous() -> None:
     }
 
     assert check_weight(80.5, "alice", references, verified=False) == (Outcome.REJECTED, None)
+
+
+@pytest.mark.parametrize(
+    ("weight", "expected"),
+    [
+        pytest.param(62.0, ["alice"], id="one_profile"),
+        pytest.param(79.0, ["bob"], id="stale_profile_is_skipped"),
+        pytest.param(105.0, ["dave"], id="initial_hint_10_percent"),
+        pytest.param(70.0, [], id="nobody"),
+    ],
+)
+def test_matching_profiles(weight: float, expected: list[str]) -> None:
+    assert matching_profiles(weight, REFERENCES) == expected

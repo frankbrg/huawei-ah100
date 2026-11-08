@@ -61,3 +61,14 @@ def check_weight(
     if len(candidates) == 1:
         return Outcome.REDIRECTED, candidates[0]
     return Outcome.REJECTED, None
+
+
+def matching_profiles(
+    weight_kg: float, references: Mapping[str, WeightReference | None]
+) -> list[str]:
+    """Return the profiles a weighing without any profile selection could belong to."""
+    return [
+        profile_id
+        for profile_id, reference in references.items()
+        if reference is not None and _fits(weight_kg, reference, TOLERANCE)
+    ]

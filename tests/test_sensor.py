@@ -9,6 +9,7 @@ from custom_components.huawei_ah100.sensor import (
     SENSOR_DESCRIPTIONS,
     SYNC_STATUS_DESCRIPTION,
     SYNC_STATUS_OPTIONS,
+    HuaweiAH100AssignedProfileSensor,
     HuaweiAH100PhoneSignalSensor,
     HuaweiAH100Sensor,
     HuaweiAH100SyncStatusSensor,
@@ -187,11 +188,12 @@ async def test_setup_adds_entities_to_each_profile_subentry() -> None:
     entry = SimpleNamespace(runtime_data=coordinator)
     await async_setup_entry(None, entry, add_entities)
 
-    assert [subentry_id for _, subentry_id in batches] == ["legacy", "second"]
-    assert [len(entities) for entities, _ in batches] == [5, 5]
+    assert [subentry_id for _, subentry_id in batches] == [None, "legacy", "second"]
+    assert [len(entities) for entities, _ in batches] == [1, 5, 5]
+    assert isinstance(batches[0][0][0], HuaweiAH100AssignedProfileSensor)
     assert all(
         isinstance(entity, HuaweiAH100SyncStatusSensor)
-        for entities, _ in batches
+        for entities, _ in batches[1:]
         for entity in entities[-1:]
     )
 
@@ -231,3 +233,26 @@ async def test_phone_signal_sensor_only_for_profiles_with_a_beacon() -> None:
     assert PHONE_SIGNAL_DESCRIPTION.entity_registry_enabled_default is False
     rssi.clear()
     assert sensor.native_value is None
+
+
+def test_assigned_profile_sensor_shows_activated_profile_and_method() -> None:
+    since = datetime(2026, 11, 8, 7, 30, tzinfo=UTC)
+    coordinator = _coordinator({"legacy": LEGACY_PROFILE, "second": SECOND_PROFILE})
+    coordinator.assignment = None
+    coordinator.assignment_since = None
+    sensor = HuaweiAH100AssignedProfileSensor(coordinator)
+
+    assert sensor.unique_id == f"{ADDRESS}_assigned_profile"
+    assert sensor.options == ["automatic", "Alex", "Sam"]
+    assert sensor.native_value == "automatic"
+    assert sensor.extra_state_attributes == {"method": None}
+    assert sensor.device_info["identifiers"] == {("huawei_ah100", ADDRESS)}
+
+    coordinator.assignment = ("second", "proximity")
+    coordinator.assignment_since = since
+    assert sensor.native_value == "Sam"
+    assert sensor.extra_state_attributes == {
+        "profile_id": "second",
+        "method": "proximity",
+        "activated_at": since.isoformat(),
+    }

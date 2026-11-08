@@ -9,7 +9,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME
+from .const import AUTOMATIC_OPTION, DOMAIN, NAME
 from .coordinator import HuaweiScaleCoordinator
 
 SELECT_DESCRIPTION = SelectEntityDescription(
@@ -28,7 +28,7 @@ async def async_setup_entry(
 
 
 class HuaweiAH100ActiveProfileSelect(CoordinatorEntity[HuaweiScaleCoordinator], SelectEntity):
-    """Select which profile the physical scale uses for its next session."""
+    """Select the profile for the next weighing, or leave it to automatic assignment."""
 
     entity_description = SELECT_DESCRIPTION
     _attr_has_entity_name = True
@@ -43,14 +43,15 @@ class HuaweiAH100ActiveProfileSelect(CoordinatorEntity[HuaweiScaleCoordinator], 
 
     @property
     def options(self) -> list[str]:
-        return [profile["name"] for profile in self.coordinator.profiles.values()]
+        return [
+            AUTOMATIC_OPTION,
+            *(profile["name"] for profile in self.coordinator.profiles.values()),
+        ]
 
     @property
     def current_option(self) -> str | None:
-        if self.coordinator.active_profile_id is None:
-            return None
         profile = self.coordinator.profiles.get(self.coordinator.active_profile_id)
-        return profile["name"] if profile is not None else None
+        return profile["name"] if profile is not None else AUTOMATIC_OPTION
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -62,7 +63,10 @@ class HuaweiAH100ActiveProfileSelect(CoordinatorEntity[HuaweiScaleCoordinator], 
         )
 
     async def async_select_option(self, option: str) -> None:
-        """Select the named profile for the next manual weighing session."""
+        """Select the named profile for the next weighing only."""
+        if option == AUTOMATIC_OPTION:
+            await self.coordinator.async_select_profile(None)
+            return
         profile_id = next(
             (
                 profile_id

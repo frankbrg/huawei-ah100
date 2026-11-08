@@ -162,11 +162,30 @@
       },
       "phone_signal": {
         "name": "Signal du téléphone"
+      },
+      "assigned_profile": {
+        "name": "Profil attribué",
+        "state": {
+          "automatic": "Automatique"
+        },
+        "state_attributes": {
+          "method": {
+            "name": "Méthode",
+            "state": {
+              "selection": "Sélection directe",
+              "confirmation": "Confirmation",
+              "proximity": "Proximité du téléphone"
+            }
+          }
+        }
       }
     },
     "select": {
       "active_profile": {
-        "name": "Profil actif"
+        "name": "Profil pour la prochaine pesée",
+        "state": {
+          "automatic": "Automatique"
+        }
       }
     }
   },

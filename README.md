@@ -17,7 +17,7 @@ An unofficial, local Bluetooth integration for reading body-composition measurem
 
 ## What it provides
 
-Each configured scale has one physical device in Home Assistant. You can add a named profile for each person who uses it and explicitly choose the active profile before weighing. The integration does not identify a person from their weight. If a weighing is already underway, let it finish before switching profiles; Home Assistant keeps that result with the profile selected when the session began.
+Each configured scale has one physical device in Home Assistant. You can add a named profile for each person who uses it. The profile of a weighing comes from a direct selection, a profile confirmation, a nearby phone, or, when none of these applies, from the weight itself; see [Profile assignment](#profile-assignment). If a weighing is already underway, let it finish before switching profiles; Home Assistant keeps that result with the profile chosen when the session began.
 
 Each profile has its own logical device linked to the physical scale and its own four measurement sensors:
 
@@ -28,7 +28,7 @@ Each profile has its own logical device linked to the physical scale and its own
 | Impedance | Ω | Electrical impedance reported by the scale |
 | Last measurement | UTC | When Home Assistant received the latest valid live record |
 
-The physical scale device also has an **Active profile** selector. Each profile device includes a **SparkyFitness sync** diagnostic sensor. It shows `disabled` when sync is off, `pending` before a sync is confirmed or while data waits, `synced` after success, and `error` after a failed attempt.
+The physical scale device also has a **Profile for next weighing** selector and an **Assigned profile** sensor. Each profile device includes a **SparkyFitness sync** diagnostic sensor. It shows `disabled` when sync is off, `pending` before a sync is confirmed or while data waits, `synced` after success, and `error` after a failed attempt.
 
 Measurement attributes include `user_id`, the device-local timestamp (`device_measured_at`), the device weekday field (`weekday`), and uninterpreted trailing bytes (`unknown_tail_hex`). Unknown bytes stay explicitly unknown; they are not labelled as visceral fat or another body metric. The integration does not calculate water, muscle, bone, BMI, BMR, or other derived values.
 
@@ -83,13 +83,24 @@ Submit the form once. Close Huawei Health, step onto the scale barefoot, and sta
 
 Open the Huawei AH100 integration page in **Settings → Devices & services** and select **Add profile** to create another profile. Edit or rename a profile from that same page. Profile names must be unique. Renaming a profile keeps its sensor identities and history.
 
-Choose the person in the physical scale's **Active profile** selector before weighing. Each profile has separate measurements and its own device in Home Assistant, linked to the physical scale. If you upgrade from the previous single-profile setup, it becomes **Profile 1** and keeps its existing sensor IDs, readings, and history.
+Each profile has separate measurements and its own device in Home Assistant, linked to the physical scale. If you upgrade from the previous single-profile setup, it becomes **Profile 1** and keeps its existing sensor IDs, readings, and history.
 
-The scale's **Scale user ID**, **Allow pairing or binding**, and optional **Require profile confirmation for each weighing** settings are shared by every profile and live in the integration's connection options. The user ID is the scale's authentication slot, not the profile ID. Changing active profiles does not change this setting or rebind the scale. If a weighing session is already running, Home Assistant lets it finish and associates the result with the original profile before the next session uses the newly selected profile.
+The scale's **Scale user ID**, **Allow pairing or binding**, and optional **Require profile confirmation for each weighing** settings are shared by every profile and live in the integration's connection options. The user ID is the scale's authentication slot, not the profile ID. Selecting a profile does not change this setting or rebind the scale. If a weighing session is already running, Home Assistant lets it finish and associates the result with the original profile before the next session uses the newly selected profile.
+
+## Profile assignment
+
+The integration decides the profile of each weighing in this order:
+
+1. **Direct selection:** pick the person in the scale's **Profile for next weighing** selector. The selection applies to the next saved weighing only; afterwards the selector returns to **Automatic**. A discarded weighing keeps the selection for another try. A selection is not kept across restarts.
+2. **Profile confirmation**, if enabled (see below).
+3. **Phone proximity**, if enabled (see [Automatic profile selection by phone proximity](#automatic-profile-selection-by-phone-proximity)).
+4. **Weight:** with **Automatic** and no nearby phone, the weighing goes to the only profile whose last weighing, or initial weight hint before the first weighing, is within 5% (10% for the hint). If two or more profiles fit, or none, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `reason` `ambiguous_weight` or `no_matching_profile` and the fitting profiles in `candidates`. The scale computes body fat with the profile it was set up for, which is the last weighed person, so body fat is dropped when the weighing goes to someone else. With only one profile, every weighing goes to it.
+
+Every activation and deactivation is logged. The **Assigned profile** sensor shows the profile that is active for the next weighing, or **Automatic**, with the attributes `method` (`selection`, `confirmation`, or `proximity`) and `activated_at`; its history shows when each profile was active. In addition, `huawei_ah100_profile_activated` and `huawei_ah100_profile_deactivated` events carry `entry_id`, `profile_id`, `profile_name`, `method`, optional `person_entity_id`, and for deactivation a `reason`: `weighing_saved`, `replaced`, `deselected`, `out_of_range`, or the cancellation reason of a confirmation. The logbook lists these events together with saved weighings and how they were assigned (`assigned_by` in `huawei_ah100_measurement_saved`), and discarded weighings with their reason.
 
 ## Optional household automations
 
-The existing manual active-profile flow remains the default. To ask Home Assistant automations to confirm the profile for each weighing, enable **Require profile confirmation for each weighing** in the scale's integration options. Initial setup does not show this option.
+Without this option, the profile comes from the selector, a nearby phone, or the weight. To ask Home Assistant automations to confirm the profile for each weighing, enable **Require profile confirmation for each weighing** in the scale's integration options. Initial setup does not show this option.
 
 When enabled, a scale wake emits `huawei_ah100_weighing_requested` with the scale `entry_id`, a `request_id`, an expiry time in `expires_at`, and the configured profiles (`profile_id`, `name`, and optional `person_entity_id`). The integration does not decide who is home or send notifications; create Home Assistant automations for your household. They can claim automatically when household logic identifies exactly one eligible resident, or send actionable notifications when several residents may be weighing. For an actionable notification, pass the original event's `trigger.event.context.user_id` as `claimant_user_id`; use that event context rather than an identity value supplied in notification action data.
 
@@ -107,17 +118,17 @@ If each household member carries a phone that broadcasts an iBeacon, the scale c
 4. Stand at the scale with the phone where you usually carry it, and note the value. Then note the value from where other people usually are, for example the next room.
 5. In the scale's integration options, enable **Select profile by phone proximity** and set **Phone proximity signal threshold** between those two values. The default is -65 dBm.
 
-When the scale wakes and exactly one profile phone is at or above the threshold at that scanner, its profile is used for that weighing. Without profile confirmation, the **Active profile** selector does not change; only that session uses the detected profile. With **Require profile confirmation for each weighing**, the integration confirms the profile itself: it skips `huawei_ah100_weighing_requested` and emits `huawei_ah100_profile_confirmed` with `source: proximity`. When no phone or more than one phone is near, the scale behaves exactly as without this option. Phone UUIDs and signal readings stay in Home Assistant and are never sent to SparkyFitness.
+While exactly one profile phone is at or above the threshold at that scanner, that profile is activated, and a weighing uses it unless a profile was selected directly. The integration checks every 5 seconds and logs when the phone comes and goes. With **Require profile confirmation for each weighing**, the integration confirms the profile itself: it skips `huawei_ah100_weighing_requested` and emits `huawei_ah100_profile_confirmed` with `source: proximity`; a direct selection is confirmed the same way with `source: selection`. When no phone or more than one phone is near, the weighing is assigned by weight. Phone UUIDs and signal readings stay in Home Assistant and are never sent to SparkyFitness.
 
 ## Weight plausibility check
 
-Enable **Check that the weight fits the profile** in the scale's integration options to catch weighings stored for the wrong person. Each weighing is compared with the profile's last weighing from the past 30 days:
+Enable **Check that the weight fits the profile** in the scale's integration options to catch weighings stored for the wrong person. This applies to weighings whose profile was selected, confirmed, or found by phone proximity; weighings assigned by weight are always checked as described in [Profile assignment](#profile-assignment). Each weighing is compared with the profile's last weighing from the past 30 days:
 
-- up to 10% difference is accepted when phone proximity or a profile confirmation chose the profile, up to 5% when it came from the **Active profile** selector;
+- up to 10% difference is accepted when phone proximity or a profile confirmation chose the profile, up to 5% when it was selected directly;
 - before a profile's first weighing, its initial weight hint is used with 10%;
 - if the last weighing is older than 30 days, the weighing is accepted without a check, so a long break or a diet does not lose data.
 
-When a weighing does not fit, it moves to the only other profile within 5%. The scale calculated body fat with the wrong profile's height, age, and sex, so a moved weighing keeps weight and impedance but no body fat; `huawei_ah100_measurement_saved` then contains `redirected_from`. If no other profile or more than one fits, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `entry_id`, `profile_id`, `reason`, `weight_kg`, `reference_weight_kg`, and `impedance_ohm`. The check cannot tell apart people whose weights are within 5% of each other.
+When a weighing does not fit, it moves to the only other profile within 5%. The scale calculated body fat with the wrong profile's height, age, and sex, so a moved weighing keeps weight and impedance but no body fat; `huawei_ah100_measurement_saved` then contains `redirected_from`. If no other profile or more than one fits, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `entry_id`, `profile_id`, `reason` `weight_mismatch`, `weight_kg`, `reference_weight_kg`, and `impedance_ohm`. The check cannot tell apart people whose weights are within 5% of each other.
 
 ## SparkyFitness sync
 
@@ -136,7 +147,7 @@ The **SparkyFitness sync** sensor reports `disabled`, `pending`, `synced`, or `e
 ## Troubleshooting
 
 - **The nearby chooser is empty or has no scale name:** close Huawei Health, wake the scale, and retry within Bluetooth range. Check that Home Assistant's Bluetooth adapter is in **Automatic** or **Active** mode so the initial scan can retrieve the advertised name. If it is passive-only, use **Manual setup** and enter the MAC address.
-- **Sensors are unavailable:** select the correct **Active profile**, then perform a barefoot weighing and stand still until the scale finishes. The sensors need a real reading before they have values.
+- **Sensors are unavailable:** select the person in **Profile for next weighing**, then perform a barefoot weighing and stand still until the scale finishes. The sensors need a real reading before they have values.
 - **Authentication is rejected:** if this adapter has not been authorized by the scale, enable **Allow pairing or binding** in the integration's connection options, then wake the scale again. Binding can change the existing association; enable it only when needed.
 - **A phone is connected or Home Assistant cannot connect:** close Huawei Health and disconnect other phones or clients from the scale, then verify the selected or entered MAC address.
 - **SparkyFitness sync stays pending or reports an error:** check server reachability, the profile's URL, and that its API key belongs to the right account and has `health_data_write` permission. Confirm that account and Home Assistant use the same timezone.

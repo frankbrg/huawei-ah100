@@ -30,7 +30,7 @@ def test_active_profile_select_shows_names_and_physical_scale_device() -> None:
     assert entity.unique_id == f"{ADDRESS}_active_profile"
     assert entity.entity_description.translation_key == "active_profile"
     assert entity.available
-    assert entity.options == ["Alex", "Sam"]
+    assert entity.options == ["automatic", "Alex", "Sam"]
     assert entity.current_option == "Sam"
     assert entity.device_info["identifiers"] == {("huawei_ah100", ADDRESS)}
     assert entity.device_info["model"] == "AH100"
@@ -43,6 +43,18 @@ async def test_select_option_resolves_the_profile_id() -> None:
     await entity.async_select_option("Alex")
 
     coordinator.async_select_profile.assert_awaited_once_with("profile-1")
+
+
+async def test_automatic_option_clears_the_selection() -> None:
+    coordinator = _coordinator()
+    entity = HuaweiAH100ActiveProfileSelect(coordinator)
+
+    await entity.async_select_option("automatic")
+
+    coordinator.async_select_profile.assert_awaited_once_with(None)
+    assert HuaweiAH100ActiveProfileSelect(_coordinator(active_profile_id=None)).current_option == (
+        "automatic"
+    )
 
 
 async def test_select_option_rejects_unknown_profile_name() -> None:
@@ -59,8 +71,8 @@ def test_select_is_unavailable_when_there_are_no_profiles() -> None:
     entity = HuaweiAH100ActiveProfileSelect(_coordinator(profiles={}, active_profile_id=None))
 
     assert not entity.available
-    assert entity.options == []
-    assert entity.current_option is None
+    assert entity.options == ["automatic"]
+    assert entity.current_option == "automatic"
 
 
 async def test_setup_adds_one_select_to_the_physical_scale() -> None:

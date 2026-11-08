@@ -39,20 +39,27 @@ class IdentityRequests:
         entry_id: str,
         profiles: Mapping[str, Mapping[str, Any]],
         on_claim: Callable[[str], None],
+        on_release: Callable[[str], None] | None = None,
     ) -> None:
         self._hass = hass
         self._entry_id = entry_id
         self._profiles = profiles
         self._on_claim = on_claim
+        self._on_release = on_release
         self._request: WeighingRequest | None = None
 
     @callback
     def request(
-        self, wake_id: int, nearby_profile_id: str | None = None
+        self,
+        wake_id: int,
+        preset_profile_id: str | None = None,
+        *,
+        source: str = "proximity",
     ) -> asyncio.Future[str | None]:
         """Emit a request and return the future resolved by a claim or cancellation.
 
-        A profile detected by phone proximity is confirmed at once without asking automations.
+        A profile already known from phone proximity or a direct selection is confirmed at
+        once without asking automations.
         """
         self.cancel("superseded")
         request_id = uuid4().hex
@@ -65,8 +72,8 @@ class IdentityRequests:
             future,
             timer,
         )
-        if nearby_profile_id in self._profiles:
-            self._confirm(self._request, nearby_profile_id, source="proximity")
+        if preset_profile_id in self._profiles:
+            self._confirm(self._request, preset_profile_id, source=source)
             return future
         self._hass.bus.async_fire(
             f"{DOMAIN}_weighing_requested",
@@ -158,6 +165,8 @@ class IdentityRequests:
             profile.pop("name")
             payload.update(profile)
         self._hass.bus.async_fire(f"{DOMAIN}_weighing_cancelled", payload)
+        if request.profile_id is not None and self._on_release is not None:
+            self._on_release(reason)
 
     def finish(self, wake_id: int) -> None:
         """Forget a request after its measurement has been saved."""
@@ -165,3 +174,5 @@ class IdentityRequests:
         if request is not None and request.wake_id == wake_id:
             self._request = None
             request.timer.cancel()
+            if request.profile_id is not None and self._on_release is not None:
+                self._on_release("weighing_saved")

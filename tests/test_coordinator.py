@@ -253,6 +253,7 @@ async def test_disconnect_preserves_pending_durable_save_with_partial_service_ca
     client.stop_notify = AsyncMock()
     client.disconnect = AsyncMock()
     coordinator._store.async_save = save
+    await coordinator.async_select_profile("alice")
     remove_listener = coordinator.async_add_listener(published.set)
     with (
         patch.object(coordinator, "_get_device", return_value=Mock()),
@@ -389,23 +390,14 @@ async def test_profiles_are_isolated_and_configuration_is_a_snapshot(coordinator
     assert coordinator.profile_data("bob")["weight_kg"] == 55.5
 
 
-async def test_active_profile_uses_valid_option_then_legacy_then_first(coordinator):
+async def test_selection_is_not_restored_and_defaults_to_legacy_then_first(coordinator):
     hass = coordinator.hass
-    assert coordinator.active_profile_id == "alice"
-    assert (
-        HuaweiScaleCoordinator(
-            hass, make_entry(options={"active_profile_id": "bob"})
-        ).active_profile_id
-        == "bob"
-    )
-    assert (
-        HuaweiScaleCoordinator(
-            hass, make_entry(options={"active_profile_id": "removed"})
-        ).active_profile_id
-        == "alice"
-    )
+    assert coordinator.active_profile_id is None
+    stale_option = HuaweiScaleCoordinator(hass, make_entry(options={"active_profile_id": "bob"}))
+    assert stale_option.active_profile_id is None
+    assert stale_option._default_profile_id == "alice"
     entry = make_entry(profiles={"bob": PROFILE, "alice": PROFILE})
-    assert HuaweiScaleCoordinator(hass, entry).active_profile_id == "bob"
+    assert HuaweiScaleCoordinator(hass, entry)._default_profile_id == "bob"
 
 
 async def test_empty_profiles_have_no_bluetooth_reader(coordinator):
@@ -627,35 +619,22 @@ async def test_unload_cancels_http_and_leaves_durable_pending(sync_coordinator):
     assert len((await sync_coordinator._store.async_load())["pending_sync"]) == 1
 
 
-async def test_select_noop_unknown_and_concurrent_requests(coordinator):
-    updates = []
-    coordinator.hass.config_entries = SimpleNamespace(
-        async_update_entry=lambda entry, **kwargs: updates.append(kwargs["options"])
-    )
-    await coordinator.async_select_profile("alice")
-    assert not updates
-    assert not coordinator._paused
+async def test_select_is_in_memory_and_rejects_unknown_profiles(coordinator):
+    update = Mock()
+    coordinator.hass.config_entries = SimpleNamespace(async_update_entry=update)
+    await coordinator.async_select_profile("bob")
+    await coordinator.async_select_profile("bob")
+    assert coordinator.active_profile_id == "bob"
     with pytest.raises(ValueError):
         await coordinator.async_select_profile("unknown")
-    entered = asyncio.Event()
-    release = asyncio.Event()
-    original_prepare = coordinator.async_prepare_reload
-
-    async def prepare():
-        entered.set()
-        await release.wait()
-        await original_prepare()
-
-    coordinator.async_prepare_reload = prepare
-    first = asyncio.create_task(coordinator.async_select_profile("bob"))
-    await asyncio.wait_for(entered.wait(), 1)
-    second = asyncio.create_task(coordinator.async_select_profile("bob"))
-    release.set()
-    await asyncio.gather(first, second)
-    assert all(update["active_profile_id"] == "bob" for update in updates)
+    assert coordinator.active_profile_id == "bob"
+    await coordinator.async_select_profile(None)
+    assert coordinator.active_profile_id is None
+    update.assert_not_called()
+    assert not coordinator._paused
 
 
-async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reload(
+async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reconnecting(
     coordinator, monkeypatch
 ):
     monkeypatch.setattr(session, "SLEEP_GRACE_SECONDS", 0.01)
@@ -702,12 +681,7 @@ async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reload
         await original_save(envelope)
         order.append("durable")
 
-    def update(entry, *, options):
-        assert not client.is_connected
-        order.append("options")
-        object.__setattr__(entry, "options", MappingProxyType(options))
-
-    coordinator.hass.config_entries = SimpleNamespace(async_update_entry=update)
+    await coordinator.async_select_profile("alice")
     coordinator._store.async_save = save
     client.start_notify = start_notify
     client.write_gatt_char = write
@@ -719,15 +693,14 @@ async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reload
         patch("custom_components.huawei_ah100.coordinator.establish_connection", establish),
     ):
         coordinator._task = asyncio.create_task(coordinator._async_listen())
-        switch = None
         try:
             coordinator._wake.set()
             await asyncio.wait_for(subscribed.wait(), 1)
             emit(0x00)
             await asyncio.wait_for(configured.wait(), 1)
-            switch = asyncio.create_task(coordinator.async_select_profile("bob"))
-            await wait_until(lambda: coordinator._paused)
-            assert not switch.done()
+            await coordinator.async_select_profile("bob")
+            assert coordinator._session_stop.is_set()
+            assert not coordinator._paused
             plaintext = (
                 b"\x01"
                 + (700).to_bytes(2, "little")
@@ -744,33 +717,27 @@ async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reload
                 encrypted=True,
             )
             await asyncio.wait_for(save_entered.wait(), 1)
-            assert not switch.done()
             assert coordinator.profile_data("alice") is None
             assert coordinator.profile_data("bob") is None
             save_release.set()
             await asyncio.wait_for(acked.wait(), 1)
-            assert not switch.done()
             emit(0x01)
             emit(0x00)
-            await asyncio.wait_for(switch, 1)
-            assert order == ["durable", "ack", "disconnect", "options"]
+            await wait_until(lambda: order[-1:] == ["disconnect"])
+            await asyncio.wait_for(coordinator._session_done.wait(), 1)
+            assert order == ["durable", "ack", "disconnect"]
             assert coordinator.profile_data("alice")["weight_kg"] == 70.0
             assert coordinator.profile_data("bob") is None
-            assert coordinator.entry.options["active_profile_id"] == "bob"
+            assert coordinator.active_profile_id == "bob"
+            assert "active_profile_id" not in coordinator.entry.options
             assert establish.await_count == 1
-            await asyncio.wait_for(coordinator._task, 1)
         finally:
             save_release.set()
-            await coordinator.async_stop()
-            if switch is not None:
-                await asyncio.gather(switch, return_exceptions=True)
-    replacement = HuaweiScaleCoordinator(coordinator.hass, coordinator.entry)
-    replacement._store.async_load = coordinator._store.async_load
-    assert replacement.active_profile_id == "bob"
+            coordinator._task.cancel()
+            await asyncio.gather(coordinator._task, return_exceptions=True)
     started = asyncio.Event()
 
     async def new_session(_client, _address, profile, _callback, **kwargs):
-        assert order[-1] == "options"
         assert profile["initial_weight_kg"] == 65.0
         assert "latest_weight_kg" not in profile
         assert kwargs["user_id"] == 1
@@ -779,20 +746,17 @@ async def test_profile_switch_finishes_old_save_ack_and_disconnect_before_reload
 
     new_client = Mock(disconnect=AsyncMock())
     with (
-        patch.object(replacement, "_get_device", return_value=Mock()),
+        patch.object(coordinator, "_get_device", return_value=Mock()),
         patch(
             "custom_components.huawei_ah100.coordinator.establish_connection",
             AsyncMock(return_value=new_client),
         ),
         patch("custom_components.huawei_ah100.coordinator.run_session", new_session),
     ):
-        replacement._task = asyncio.create_task(replacement._async_listen())
-        try:
-            replacement._wake.set()
-            await asyncio.wait_for(started.wait(), 1)
-            await asyncio.wait_for(replacement.async_prepare_reload(), 1)
-        finally:
-            await replacement.async_stop()
+        coordinator._task = asyncio.create_task(coordinator._async_listen())
+        coordinator._wake.set()
+        await asyncio.wait_for(started.wait(), 1)
+        await asyncio.wait_for(coordinator.async_prepare_reload(), 1)
 
 
 async def test_v2_profile_reading_survives_wire_user_id_change(coordinator):
@@ -822,16 +786,6 @@ async def test_queued_day_stays_fixed_if_ha_timezone_changes(sync_coordinator):
     sent = sync_coordinator._sparky.async_send.call_args
     assert sent.args[2] == "America/New_York"
     assert sent.kwargs["day"] == "2034-07-12"
-
-
-async def test_same_profile_is_noop_with_a_stale_active_option(coordinator):
-    entry = make_entry(options={"active_profile_id": "removed"})
-    stale = HuaweiScaleCoordinator(coordinator.hass, entry)
-    update = Mock()
-    coordinator.hass.config_entries = SimpleNamespace(async_update_entry=update)
-    await stale.async_select_profile("alice")
-    assert not stale._paused
-    update.assert_not_called()
 
 
 async def test_restart_resumes_existing_outbox_without_queuing_restored_readings(sync_coordinator):
@@ -898,6 +852,7 @@ async def test_saved_and_disabled_completion_events_follow_durable_commit(coordi
         "impedance_ohm": 450,
         "received_at": stored["profiles"]["bob"]["received_at"],
         "sparky_enabled": False,
+        "assigned_by": "selection",
     }
     assert completed == {**saved, "sync_status": "disabled"}
     assert coordinator.profile_data("alice") is None
@@ -996,7 +951,7 @@ async def test_restart_restores_readings_without_reemitting_saved_or_disabled_co
         await reloaded.async_stop()
 
 
-async def test_confirmed_profile_changes_select_in_memory_without_options_update(coordinator):
+async def test_confirmed_profile_is_activated_until_its_weighing_is_saved(coordinator):
     entry = make_entry(options={"require_profile_confirmation": True})
     confirmed = HuaweiScaleCoordinator(coordinator.hass, entry)
     options_before = dict(entry.options)
@@ -1009,10 +964,14 @@ async def test_confirmed_profile_changes_select_in_memory_without_options_update
         await confirmed.async_claim_weighing(request_id, "bob")
         selected = await resolved
         assert selected.profile["initial_weight_kg"] == 65.0
-        assert confirmed.active_profile_id == "bob"
-        assert entity.current_option == "Bob"
+        assert confirmed.assignment == ("bob", "confirmation")
+        assert confirmed.active_profile_id is None
+        assert entity.current_option == "automatic"
         entity.async_write_ha_state.assert_called_once()
         assert entry.options == options_before
+        await selected.on_measurement(MEASUREMENT)
+        assert confirmed.profile_data("bob")["assigned_by"] == "confirmation"
+        assert confirmed.assignment is None
         assert not confirmed._paused
         with pytest.raises(ServiceValidationError):
             await confirmed.async_claim_weighing(request_id, "alice")
@@ -1204,7 +1163,8 @@ async def test_confirmation_mode_claims_nearby_profile_without_request_event(coo
             selected = await scale._resolve_profile(1)
         await coordinator.hass.async_block_till_done()
         assert selected.profile["initial_weight_kg"] == 65.0
-        assert scale.active_profile_id == "bob"
+        assert scale.assignment == ("bob", "proximity")
+        assert scale.active_profile_id is None
         assert requested == []
     finally:
         unsubscribe()
@@ -1240,7 +1200,7 @@ async def test_manual_mode_session_uses_nearby_profile_without_changing_selectio
         await asyncio.wait_for(scale._async_listen(), 1)
 
     assert [profile["initial_weight_kg"] for profile in sessions] == [expected_weight]
-    assert scale.active_profile_id == "alice"
+    assert scale.active_profile_id is None
     assert "active_profile_id" not in entry.options
     await scale.async_stop()
 
@@ -1264,6 +1224,39 @@ async def test_start_and_stop_manage_the_beacon_listener(coordinator):
         stop.assert_called_once_with()
 
 
+@pytest.mark.parametrize(
+    ("options", "polled"),
+    [
+        pytest.param({"proximity_profile_selection": True}, True, id="enabled"),
+        pytest.param({}, False, id="disabled"),
+    ],
+)
+async def test_phone_proximity_is_polled_only_when_enabled(
+    coordinator: HuaweiScaleCoordinator, options: dict[str, bool], polled: bool
+) -> None:
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_beacon_entry(options))
+    unsubscribe = Mock()
+    with (
+        patch.object(scale._proximity, "async_start"),
+        patch(
+            "custom_components.huawei_ah100.coordinator.bluetooth"
+            ".async_register_advertisement_callback",
+            return_value=Mock(),
+        ),
+        patch(
+            "custom_components.huawei_ah100.coordinator.async_track_time_interval",
+            return_value=unsubscribe,
+        ) as track,
+        patch.object(scale, "_get_device", return_value=None),
+        patch.object(scale, "_async_listen", new=AsyncMock()),
+    ):
+        await scale.async_start()
+        await scale.async_stop()
+
+    assert track.called is polled
+    assert unsubscribe.called is polled
+
+
 def make_checked_entry():
     return make_entry(
         profiles={
@@ -1276,10 +1269,12 @@ def make_checked_entry():
 
 def capture_events(hass, *names):
     events = []
-    unsubscribes = [
-        hass.bus.async_listen(f"huawei_ah100_{name}", lambda event: events.append(event))
-        for name in names
-    ]
+
+    @callback
+    def capture(event):
+        events.append(event)
+
+    unsubscribes = [hass.bus.async_listen(f"huawei_ah100_{name}", capture) for name in names]
     return events, unsubscribes
 
 
@@ -1343,21 +1338,20 @@ async def test_weight_check_rejects_a_weighing_that_fits_no_profile(coordinator)
 
 
 @pytest.mark.parametrize(
-    ("verified", "expected_profile"),
+    ("method", "expected_profile"),
     [
-        pytest.param(False, None, id="selector_5_percent"),
-        pytest.param(True, "alice", id="verified"),
+        pytest.param("selection", None, id="selection_5_percent"),
+        pytest.param("confirmation", "alice", id="confirmation_10_percent"),
+        pytest.param("proximity", "alice", id="proximity_10_percent"),
     ],
 )
 async def test_weight_check_tolerance_depends_on_how_the_profile_was_chosen(
-    coordinator, verified, expected_profile
+    coordinator, method, expected_profile
 ):
     scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
     try:
         await scale._async_measurement({**MEASUREMENT, "weight_kg": 70.0}, "alice")
-        await scale._async_measurement(
-            {**MEASUREMENT, "weight_kg": 75.6}, "alice", verified=verified
-        )
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 75.6}, "alice", method=method)
     finally:
         await scale.async_stop()
 
@@ -1383,7 +1377,7 @@ async def test_weight_check_skips_profiles_without_a_recent_weighing(coordinator
     ("nearby", "weight", "expected_profile"),
     [
         pytest.param("bob", 72.0, "bob", id="proximity_allows_10_percent"),
-        pytest.param(None, 72.0, None, id="selector_allows_5_percent"),
+        pytest.param(None, 72.0, None, id="no_phone_assigns_by_weight"),
     ],
 )
 async def test_session_save_passes_proximity_as_verified(
@@ -1429,3 +1423,240 @@ async def test_session_save_passes_proximity_as_verified(
 
 def dt_now_iso():
     return datetime.now(ZoneInfo("UTC")).isoformat()
+
+
+def make_household_entry(**options: bool):
+    return make_entry(
+        profiles={
+            "alice": {**PROFILE, "legacy_profile": True, "initial_weight_kg": 60.0},
+            "bob": {**PROFILE, "initial_weight_kg": 80.0},
+            "carol": {**PROFILE, "initial_weight_kg": 82.0},
+        },
+        options=options,
+    )
+
+
+def saved_profiles(scale: HuaweiScaleCoordinator) -> list[str]:
+    return [profile_id for profile_id in scale.profiles if scale.profile_data(profile_id)]
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected_fat"),
+    [
+        pytest.param("alice", 20.0, id="configured_profile_keeps_body_fat"),
+        pytest.param("bob", None, id="other_profile_drops_body_fat"),
+    ],
+)
+async def test_weighing_without_selection_goes_to_the_only_fitting_profile(
+    coordinator: HuaweiScaleCoordinator, configured: str, expected_fat: float | None
+) -> None:
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_household_entry())
+    try:
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 61.0}, configured, method="weight"
+        )
+    finally:
+        await scale.async_stop()
+
+    assert saved_profiles(scale) == ["alice"]
+    assert scale.profile_data("alice")["fat_percent"] == expected_fat
+    assert scale.profile_data("alice")["assigned_by"] == "weight"
+
+
+@pytest.mark.parametrize(
+    ("weight", "reason", "candidates"),
+    [
+        pytest.param(85.0, "ambiguous_weight", ["bob", "carol"], id="two_profiles_fit"),
+        pytest.param(100.0, "no_matching_profile", [], id="no_profile_fits"),
+    ],
+)
+async def test_weighing_without_selection_is_discarded_unless_exactly_one_profile_fits(
+    coordinator: HuaweiScaleCoordinator, weight: float, reason: str, candidates: list[str]
+) -> None:
+    hass = coordinator.hass
+    scale = HuaweiScaleCoordinator(hass, make_household_entry())
+    events, unsubscribes = capture_events(hass, "measurement_rejected", "measurement_saved")
+    try:
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": weight}, "alice", method="weight"
+        )
+        await hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert saved_profiles(scale) == []
+    assert [event.event_type for event in events] == ["huawei_ah100_measurement_rejected"]
+    assert events[0].data == {
+        "entry_id": scale.entry.entry_id,
+        "profile_id": None,
+        "reason": reason,
+        "weight_kg": weight,
+        "candidates": candidates,
+        "impedance_ohm": 450,
+    }
+
+
+async def test_weight_assignment_still_uses_an_old_weighing(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_household_entry())
+    old = datetime.now(ZoneInfo("UTC")) - timedelta(days=60)
+    scale._readings = {"carol": {**MEASUREMENT, "weight_kg": 100.0, "received_at": old.isoformat()}}
+    try:
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 101.0}, "alice", method="weight"
+        )
+    finally:
+        await scale.async_stop()
+
+    assert scale.profile_data("carol")["weight_kg"] == 101.0
+
+
+async def test_single_profile_takes_every_weighing(coordinator: HuaweiScaleCoordinator) -> None:
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_entry(profiles={"alice": PROFILE}))
+    try:
+        assert scale._next_session_assignment() == ("alice", "single_profile")
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 150.0}, "alice", method="single_profile"
+        )
+    finally:
+        await scale.async_stop()
+
+    assert scale.profile_data("alice")["weight_kg"] == 150.0
+    assert scale.profile_data("alice")["assigned_by"] == "single_profile"
+
+
+async def test_next_session_prefers_selection_then_phone_then_last_weighed_profile(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    scale = HuaweiScaleCoordinator(
+        coordinator.hass, make_beacon_entry({"proximity_profile_selection": True})
+    )
+    now = datetime.now(ZoneInfo("UTC"))
+    try:
+        with patch.object(scale._proximity, "nearby_profile", return_value=None) as nearby:
+            assert scale._next_session_assignment() == ("alice", "weight")
+            scale._readings = {
+                "alice": {**MEASUREMENT, "received_at": (now - timedelta(days=1)).isoformat()},
+                "bob": {**MEASUREMENT, "received_at": (now - timedelta(days=2)).isoformat()},
+            }
+            assert scale._next_session_assignment() == ("alice", "weight")
+            nearby.return_value = "bob"
+            assert scale._next_session_assignment() == ("bob", "proximity")
+            await scale.async_select_profile("alice")
+            assert scale._next_session_assignment() == ("alice", "selection")
+    finally:
+        await scale.async_stop()
+
+
+def assignment_log(events: list) -> list[tuple[str, str, str, str | None]]:
+    return [
+        (
+            event.event_type.removeprefix("huawei_ah100_"),
+            event.data["profile_id"],
+            event.data["method"],
+            event.data.get("reason"),
+        )
+        for event in events
+    ]
+
+
+async def test_selection_is_logged_and_ends_with_its_weighing(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    hass = coordinator.hass
+    events, unsubscribes = capture_events(hass, "profile_activated", "profile_deactivated")
+    try:
+        await coordinator.async_select_profile("bob")
+        assert coordinator.assignment == ("bob", "selection")
+        await coordinator._async_measurement(MEASUREMENT, "bob")
+        await hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+
+    assert coordinator.active_profile_id is None
+    assert coordinator.assignment is None
+    assert coordinator.assignment_since is None
+    assert events[0].data == {
+        "entry_id": coordinator.entry.entry_id,
+        "profile_id": "bob",
+        "profile_name": "Bob",
+        "method": "selection",
+    }
+    assert assignment_log(events) == [
+        ("profile_activated", "bob", "selection", None),
+        ("profile_deactivated", "bob", "selection", "weighing_saved"),
+    ]
+
+
+async def test_rejected_weighing_keeps_the_selection(coordinator: HuaweiScaleCoordinator) -> None:
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+    try:
+        await scale.async_select_profile("alice")
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 150.0}, "alice")
+    finally:
+        await scale.async_stop()
+
+    assert scale.profile_data("alice") is None
+    assert scale.active_profile_id == "alice"
+
+
+async def test_phone_proximity_activation_and_deactivation_are_logged(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    hass = coordinator.hass
+    scale = HuaweiScaleCoordinator(hass, make_beacon_entry({"proximity_profile_selection": True}))
+    events, unsubscribes = capture_events(hass, "profile_activated", "profile_deactivated")
+    try:
+        with patch.object(scale._proximity, "nearby_profile", return_value="bob") as nearby:
+            scale._async_update_proximity()
+            assert scale.assignment == ("bob", "proximity")
+            await scale.async_select_profile("alice")
+            await scale.async_select_profile(None)
+            nearby.return_value = None
+            scale._async_update_proximity()
+        await hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert assignment_log(events) == [
+        ("profile_activated", "bob", "proximity", None),
+        ("profile_deactivated", "bob", "proximity", "replaced"),
+        ("profile_activated", "alice", "selection", None),
+        ("profile_deactivated", "alice", "selection", "deselected"),
+        ("profile_activated", "bob", "proximity", None),
+        ("profile_deactivated", "bob", "proximity", "out_of_range"),
+    ]
+
+
+async def test_selection_is_confirmed_without_asking_in_confirmation_mode(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    hass = coordinator.hass
+    scale = HuaweiScaleCoordinator(hass, make_entry(options={"require_profile_confirmation": True}))
+    events, unsubscribes = capture_events(
+        hass, "weighing_requested", "profile_confirmed", "profile_deactivated"
+    )
+    try:
+        await scale.async_select_profile("bob")
+        selected = await scale._resolve_profile(1)
+        await selected.on_measurement(MEASUREMENT)
+        await hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert scale.profile_data("bob")["assigned_by"] == "selection"
+    assert scale.active_profile_id is None
+    assert [event.event_type for event in events] == [
+        "huawei_ah100_profile_confirmed",
+        "huawei_ah100_profile_deactivated",
+    ]
+    assert events[0].data["source"] == "selection"
+    assert events[1].data["reason"] == "weighing_saved"

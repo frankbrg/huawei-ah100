@@ -20,11 +20,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
     CONF_BEACON_UUIDS,
     CONF_INITIAL_WEIGHT,
@@ -38,12 +38,23 @@ from .const import (
     CONF_WEIGHT_CHECK,
     DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
+    METHOD_CONFIRMATION,
+    METHOD_PROXIMITY,
+    METHOD_SELECTION,
+    METHOD_SINGLE_PROFILE,
+    METHOD_WEIGHT,
     NAME,
     PROFILE_KEYS,
     SUBENTRY_PROFILE,
 )
 from .identity import IdentityRequests
-from .plausibility import REFERENCE_MAX_AGE, Outcome, WeightReference, check_weight
+from .plausibility import (
+    REFERENCE_MAX_AGE,
+    Outcome,
+    WeightReference,
+    check_weight,
+    matching_profiles,
+)
 from .proximity import PhoneProximity
 from .session import AuthenticationError, SessionProfile, run_session
 from .sparky import SparkyClient, destination_from_profile, measurement_day
@@ -52,6 +63,7 @@ from .storage import MeasurementStore
 _LOGGER = logging.getLogger(__name__)
 SYNC_RETRY_SECONDS = 5
 SYNC_MAX_RETRY_SECONDS = 300
+PROXIMITY_POLL_INTERVAL = timedelta(seconds=5)
 
 
 class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
@@ -73,12 +85,16 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             (key for key, profile in self._profiles.items() if profile.get(CONF_LEGACY_PROFILE)),
             None,
         )
-        requested_profile = entry.options.get(CONF_ACTIVE_PROFILE)
-        self._active_profile_id = (
-            requested_profile
-            if requested_profile in self._profiles
-            else self._legacy_profile_id or next(iter(self._profiles), None)
-        )
+        self._default_profile_id = self._legacy_profile_id or next(iter(self._profiles), None)
+        # A direct selection only applies to the next weighing and is not persisted.
+        self._selected_profile_id: str | None = None
+        self._preset: tuple[str, str] | None = None
+        self._claim: tuple[str, str] | None = None
+        self._beacon_profile_id: str | None = None
+        self._assignment: tuple[str, str] | None = None
+        self._assignment_since: datetime | None = None
+        self._session_assignment: tuple[str, str] | None = None
+        self._unsubscribe_proximity = None
         self._destinations = {}
         self._destination_errors: set[str] = set()
         for profile_id, profile in self._profiles.items():
@@ -91,7 +107,6 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             hass, hass.config.path(".storage", f"{DOMAIN}.{entry.entry_id}.json")
         )
         self._storage_lock = asyncio.Lock()
-        self._selection_lock = asyncio.Lock()
         self._wake = asyncio.Event()
         self._sync_wake = asyncio.Event()
         self._session_done = asyncio.Event()
@@ -106,7 +121,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._sync_state: dict[str, dict[str, Any]] = {}
         self._sparky = SparkyClient(hass)
         self._identity = IdentityRequests(
-            hass, entry.entry_id, self._profiles, self._profile_claimed
+            hass, entry.entry_id, self._profiles, self._profile_claimed, self._claim_released
         )
         beacons = {
             beacon_uuid: profile_id
@@ -123,8 +138,18 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
 
     @property
     def active_profile_id(self) -> str | None:
-        """Return the profile selected for the next manual session."""
-        return self._active_profile_id
+        """Return the profile directly selected for the next weighing, if any."""
+        return self._selected_profile_id
+
+    @property
+    def assignment(self) -> tuple[str, str] | None:
+        """Return the currently activated profile and the method that activated it."""
+        return self._assignment
+
+    @property
+    def assignment_since(self) -> datetime | None:
+        """Return when the current profile was activated."""
+        return self._assignment_since
 
     def profile_data(self, profile_id: str) -> dict[str, Any] | None:
         """Return the latest stored measurement for a profile, if available."""
@@ -140,12 +165,63 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     def _nearby_profile(self) -> str | None:
         if self._proximity is None or not self._settings.get(CONF_PROXIMITY_ENABLED, False):
             return None
-        profile_id = self._proximity.nearby_profile(
+        return self._proximity.nearby_profile(
             self._settings.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
         )
-        if profile_id is not None:
-            _LOGGER.debug("Phone proximity selected profile %s", profile_id)
-        return profile_id
+
+    @callback
+    def _async_update_proximity(self, _now: datetime | None = None) -> None:
+        beacon_profile_id = self._nearby_profile()
+        if beacon_profile_id != self._beacon_profile_id:
+            self._beacon_profile_id = beacon_profile_id
+            self._refresh_assignment("out_of_range" if beacon_profile_id is None else "replaced")
+
+    def _current_assignment(self) -> tuple[str, str] | None:
+        if self._claim is not None:
+            return self._claim
+        if self._selected_profile_id is not None:
+            return self._selected_profile_id, METHOD_SELECTION
+        if self._beacon_profile_id is not None:
+            return self._beacon_profile_id, METHOD_PROXIMITY
+        return None
+
+    @callback
+    def _refresh_assignment(self, reason: str) -> None:
+        """Log profile activations and deactivations as they happen."""
+        new = self._current_assignment()
+        old = self._assignment
+        if new == old:
+            return
+        if old is not None:
+            self._assignment_event("profile_deactivated", old, reason=reason)
+        self._assignment = new
+        self._assignment_since = dt_util.utcnow() if new is not None else None
+        if new is not None:
+            self._assignment_event("profile_activated", new)
+        self.async_update_listeners()
+
+    def _assignment_event(
+        self, event: str, assignment: tuple[str, str], *, reason: str | None = None
+    ) -> None:
+        profile_id, method = assignment
+        payload = {
+            "entry_id": self.entry.entry_id,
+            "profile_id": profile_id,
+            "profile_name": self._profiles[profile_id]["name"],
+            "method": method,
+        }
+        if person := self._profiles[profile_id].get(CONF_PERSON):
+            payload[CONF_PERSON] = person
+        if reason is not None:
+            payload["reason"] = reason
+        _LOGGER.info(
+            "Profile %s %s by %s%s",
+            payload["profile_name"],
+            "activated" if reason is None else "deactivated",
+            method,
+            "" if reason is None else f" ({reason})",
+        )
+        self.hass.bus.async_fire(f"{DOMAIN}_{event}", payload)
 
     def sync_status(self, profile_id: str) -> str:
         """Return the profile's current SparkyFitness sync state."""
@@ -204,6 +280,10 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             return
         if self._proximity is not None:
             self._proximity.async_start()
+            if self._settings.get(CONF_PROXIMITY_ENABLED, False):
+                self._unsubscribe_proximity = async_track_time_interval(
+                    self.hass, self._async_update_proximity, PROXIMITY_POLL_INTERVAL
+                )
         self._unsubscribe = bluetooth.async_register_advertisement_callback(
             self.hass,
             self._advertisement,
@@ -298,8 +378,17 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.async_set_updated_data(deepcopy(self._readings))
 
     def _profile_claimed(self, profile_id: str) -> None:
-        self._active_profile_id = profile_id
-        self._publish()
+        preset = self._preset
+        self._claim = (
+            preset
+            if preset is not None and preset[0] == profile_id
+            else (profile_id, METHOD_CONFIRMATION)
+        )
+        self._refresh_assignment("replaced")
+
+    def _claim_released(self, reason: str) -> None:
+        self._claim = None
+        self._refresh_assignment(reason)
 
     async def async_claim_weighing(
         self,
@@ -326,16 +415,29 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return profile
 
     def _resolve_profile(self, wake_id: int) -> Coroutine[Any, Any, SessionProfile | None]:
-        future = self._identity.request(wake_id, self._nearby_profile())
+        self._async_update_proximity()
+        self._preset = None
+        if self._selected_profile_id is not None:
+            self._preset = (self._selected_profile_id, METHOD_SELECTION)
+        elif self._beacon_profile_id is not None:
+            self._preset = (self._beacon_profile_id, METHOD_PROXIMITY)
+        if self._preset is None:
+            future = self._identity.request(wake_id)
+        else:
+            future = self._identity.request(wake_id, self._preset[0], source=self._preset[1])
 
         async def resolve() -> SessionProfile | None:
             profile_id = await future
             if profile_id is None:
                 return None
+            method = (
+                self._claim[1]
+                if self._claim is not None and self._claim[0] == profile_id
+                else METHOD_CONFIRMATION
+            )
 
             async def save(measurement: dict[str, Any]) -> None:
-                # A confirmed or proximity-detected owner is trusted more than the selector.
-                await self._async_measurement(measurement, profile_id, verified=True)
+                await self._async_measurement(measurement, profile_id, method=method)
                 self._identity.finish(wake_id)
 
             return SessionProfile(self._profile_snapshot(profile_id), save)
@@ -366,6 +468,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         }
         if person := self._profiles[profile_id].get(CONF_PERSON):
             payload[CONF_PERSON] = person
+        if assigned_by := measurement.get("assigned_by"):
+            payload["assigned_by"] = assigned_by
         if redirected_from := measurement.get("redirected_from"):
             payload["redirected_from"] = redirected_from
         event = "measurement_saved"
@@ -384,13 +488,60 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._readings, self._pending_sync, self._sync_state = readings, pending, states
         self._publish()
 
-    def _weight_reference(self, profile_id: str) -> WeightReference | None:
+    def _weight_reference(
+        self, profile_id: str, *, allow_stale: bool = False
+    ) -> WeightReference | None:
         if (reading := self._readings.get(profile_id)) is None:
             return WeightReference(self._profiles[profile_id][CONF_INITIAL_WEIGHT], initial=True)
         received_at = datetime.fromisoformat(reading["received_at"])
-        if dt_util.utcnow() - received_at > REFERENCE_MAX_AGE:
+        if not allow_stale and dt_util.utcnow() - received_at > REFERENCE_MAX_AGE:
             return None
         return WeightReference(reading["weight_kg"])
+
+    def _reject(
+        self, measurement: dict[str, Any], profile_id: str | None, reason: str, **details: Any
+    ) -> None:
+        _LOGGER.info("Weighing of %s kg discarded (%s)", measurement["weight_kg"], reason)
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_measurement_rejected",
+            {
+                "entry_id": self.entry.entry_id,
+                "profile_id": profile_id,
+                "reason": reason,
+                "weight_kg": measurement["weight_kg"],
+                **details,
+                "impedance_ohm": measurement.get("impedance_ohm"),
+            },
+        )
+
+    def _weight_assignment(
+        self, measurement: dict[str, Any], configured_profile_id: str
+    ) -> tuple[str | None, dict[str, Any]]:
+        if len(self._profiles) == 1:
+            return self._checked_profile(measurement, configured_profile_id, verified=False)
+        # Without a selection even an old reading is the best hint for whose weight this is.
+        references = {
+            profile_id: self._weight_reference(profile_id, allow_stale=True)
+            for profile_id in self._profiles
+        }
+        candidates = matching_profiles(measurement["weight_kg"], references)
+        if len(candidates) != 1:
+            self._reject(
+                measurement,
+                None,
+                "ambiguous_weight" if candidates else "no_matching_profile",
+                candidates=candidates,
+            )
+            return None, measurement
+        if candidates[0] == configured_profile_id:
+            return candidates[0], measurement
+        return candidates[0], self._without_body_fat(measurement)
+
+    @staticmethod
+    def _without_body_fat(measurement: dict[str, Any]) -> dict[str, Any]:
+        # The scale derived body fat from the configured profile's height, age, and sex.
+        stripped = {key: value for key, value in measurement.items() if key != "fat_raw_tenths"}
+        return {**stripped, "fat_percent": None}
 
     def _checked_profile(
         self, measurement: dict[str, Any], profile_id: str, verified: bool
@@ -405,23 +556,13 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             return profile_id, measurement
         if outcome is Outcome.REDIRECTED:
             _LOGGER.info("Weighing did not fit profile %s and was moved to %s", profile_id, target)
-            # The scale derived body fat from the wrong profile's height, age, and sex.
-            redirected = {
-                key: value for key, value in measurement.items() if key != "fat_raw_tenths"
-            }
-            return target, {**redirected, "fat_percent": None, "redirected_from": profile_id}
-        _LOGGER.info("Weighing did not fit profile %s or any other profile", profile_id)
+            return target, {**self._without_body_fat(measurement), "redirected_from": profile_id}
         reference = references[profile_id]
-        self.hass.bus.async_fire(
-            f"{DOMAIN}_measurement_rejected",
-            {
-                "entry_id": self.entry.entry_id,
-                "profile_id": profile_id,
-                "reason": "weight_mismatch",
-                "weight_kg": measurement["weight_kg"],
-                "reference_weight_kg": reference.weight_kg if reference else None,
-                "impedance_ohm": measurement.get("impedance_ohm"),
-            },
+        self._reject(
+            measurement,
+            profile_id,
+            "weight_mismatch",
+            reference_weight_kg=reference.weight_kg if reference else None,
         )
         return None, measurement
 
@@ -430,18 +571,25 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         measurement: dict[str, Any],
         profile_id: str | None = None,
         *,
-        verified: bool = False,
+        method: str = METHOD_SELECTION,
     ) -> None:
         if profile_id is None and self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False):
             raise ValueError("measurement profile is required")
-        profile_id = profile_id or self._active_profile_id
+        selected_profile_id = profile_id = profile_id or self._default_profile_id
         if profile_id not in self._profiles:
             raise ValueError("measurement profile does not exist")
-        profile_id, measurement = self._checked_profile(measurement, profile_id, verified)
+        if method in (METHOD_WEIGHT, METHOD_SINGLE_PROFILE):
+            profile_id, measurement = self._weight_assignment(measurement, profile_id)
+        else:
+            # A confirmed or proximity-detected owner is trusted more than a selection.
+            profile_id, measurement = self._checked_profile(
+                measurement, profile_id, method in (METHOD_CONFIRMATION, METHOD_PROXIMITY)
+            )
         if profile_id is None:
             return
         payload = {
             **measurement,
+            "assigned_by": method,
             "received_at": dt_util.utcnow().isoformat(),
             "measurement_id": uuid4().hex,
         }
@@ -466,19 +614,39 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         if destination is None and profile_id not in self._destination_errors:
             self._measurement_event(profile_id, payload, sync_status="disabled")
         self._sync_wake.set()
+        if method == METHOD_SELECTION and self._selected_profile_id == selected_profile_id:
+            self._selected_profile_id = None
+            self._refresh_assignment("weighing_saved")
+
+    def _next_session_assignment(self) -> tuple[str, str]:
+        self._async_update_proximity()
+        if self._selected_profile_id is not None:
+            return self._selected_profile_id, METHOD_SELECTION
+        if self._beacon_profile_id is not None:
+            return self._beacon_profile_id, METHOD_PROXIMITY
+        if len(self._profiles) == 1:
+            return self._default_profile_id, METHOD_SINGLE_PROFILE
+        # The scale needs some profile for body fat; the last person weighed is the best guess.
+        latest = max(
+            self._readings,
+            key=lambda profile_id: datetime.fromisoformat(
+                self._readings[profile_id]["received_at"]
+            ),
+            default=self._default_profile_id,
+        )
+        return latest, METHOD_WEIGHT
 
     async def _async_listen(self) -> None:
         while True:
             await self._wake.wait()
             self._wake.clear()
-            if self._paused or self._active_profile_id is None:
+            if self._paused or self._default_profile_id is None:
                 return
             device = self._get_device()
             if device is None:
                 continue
             # Keep this session's readings bound to its profile, even if the user switches profiles.
-            nearby_profile_id = self._nearby_profile()
-            profile_id = nearby_profile_id or self._active_profile_id
+            profile_id, method = self._session_assignment = self._next_session_assignment()
             profile = self._profile_snapshot(profile_id)
             stop_event = self._session_stop = asyncio.Event()
             self._session_done.clear()
@@ -488,9 +656,9 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             async def save(
                 measurement: dict[str, Any],
                 selected_profile: str = profile_id,
-                verified: bool = nearby_profile_id is not None,
+                selected_method: str = method,
             ) -> None:
-                await self._async_measurement(measurement, selected_profile, verified=verified)
+                await self._async_measurement(measurement, selected_profile, method=selected_method)
 
             try:
                 client = await establish_connection(
@@ -545,6 +713,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                             await asyncio.wait_for(client.disconnect(), timeout=10)
                 finally:
                     self._session_stop = None
+                    self._session_assignment = None
                     self._session_done.set()
             if self._paused:
                 return
@@ -559,20 +728,22 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             self._session_stop.set()
         await self._session_done.wait()
 
-    async def async_select_profile(self, profile_id: str) -> None:
-        """Persist a manual profile selection after stopping the active session."""
-        if profile_id not in self._profiles:
+    async def async_select_profile(self, profile_id: str | None) -> None:
+        """Select a profile for the next weighing, or None to assign it automatically."""
+        if profile_id is not None and profile_id not in self._profiles:
             raise ValueError("selected profile does not exist")
-        async with self._selection_lock:
-            current = self.entry.options.get(CONF_ACTIVE_PROFILE, self._active_profile_id)
-            if current not in self._profiles:
-                current = self._active_profile_id
-            if profile_id == current:
-                return
-            await self.async_prepare_reload()
-            self.hass.config_entries.async_update_entry(
-                self.entry, options={**self.entry.options, CONF_ACTIVE_PROFILE: profile_id}
-            )
+        if profile_id == self._selected_profile_id:
+            return
+        self._selected_profile_id = profile_id
+        self._refresh_assignment("replaced" if profile_id is not None else "deselected")
+        if (
+            self._session_stop is not None
+            and not self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False)
+            and self._session_assignment is not None
+            and self._session_assignment != self._next_session_assignment()
+        ):
+            # The running session configured the scale for another profile; reconnect after it.
+            self._session_stop.set()
 
     async def _async_sync(self) -> None:
         while True:
@@ -661,6 +832,9 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
+        if self._unsubscribe_proximity is not None:
+            self._unsubscribe_proximity()
+            self._unsubscribe_proximity = None
         if self._proximity is not None:
             self._proximity.async_stop()
         tasks = [task for task in (self._task, self._sync_task) if task is not None]

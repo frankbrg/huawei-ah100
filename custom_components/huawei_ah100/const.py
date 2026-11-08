@@ -20,3 +20,10 @@ CONF_PROXIMITY_ENABLED = "proximity_profile_selection"
 CONF_PROXIMITY_RSSI = "proximity_rssi_threshold"
 DEFAULT_PROXIMITY_RSSI = -65
 CONF_WEIGHT_CHECK = "weight_plausibility_check"
+# How the profile of a weighing was determined.
+METHOD_SELECTION = "selection"
+METHOD_CONFIRMATION = "confirmation"
+METHOD_PROXIMITY = "proximity"
+METHOD_WEIGHT = "weight"
+METHOD_SINGLE_PROFILE = "single_profile"
+AUTOMATIC_OPTION = "automatic"

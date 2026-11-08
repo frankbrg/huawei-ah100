@@ -162,11 +162,30 @@
       },
       "phone_signal": {
         "name": "Phone signal"
+      },
+      "assigned_profile": {
+        "name": "Assigned profile",
+        "state": {
+          "automatic": "Automatic"
+        },
+        "state_attributes": {
+          "method": {
+            "name": "Method",
+            "state": {
+              "selection": "Direct selection",
+              "confirmation": "Confirmation",
+              "proximity": "Phone proximity"
+            }
+          }
+        }
       }
     },
     "select": {
       "active_profile": {
-        "name": "Active profile"
+        "name": "Profile for next weighing",
+        "state": {
+          "automatic": "Automatic"
+        }
       }
     }
   },
