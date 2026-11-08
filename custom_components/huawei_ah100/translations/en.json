@@ -201,7 +201,7 @@
             "sparky_enabled": "Send new measurements to SparkyFitness",
             "sparky_url": "SparkyFitness server URL",
             "sparky_api_key": "SparkyFitness API key",
-            "phone_beacon_uuid": "Phone iBeacon UUID (optional)"
+            "phone_beacon_uuids": "Phone iBeacon UUIDs (optional)"
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
@@ -213,7 +213,7 @@
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
-            "phone_beacon_uuid": "UUID broadcast by this person’s phone, for example by the Home Assistant Companion app’s BLE transmitter. Used only when automatic profile selection by phone proximity is enabled in the scale options."
+            "phone_beacon_uuids": "UUIDs broadcast by this person’s phones or tags, for example by the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         },
         "reconfigure": {
@@ -229,7 +229,7 @@
             "sparky_enabled": "Send new measurements to SparkyFitness",
             "sparky_url": "SparkyFitness server URL",
             "sparky_api_key": "SparkyFitness API key",
-            "phone_beacon_uuid": "Phone iBeacon UUID (optional)"
+            "phone_beacon_uuids": "Phone iBeacon UUIDs (optional)"
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
@@ -241,7 +241,7 @@
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
             "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it.",
-            "phone_beacon_uuid": "UUID broadcast by this person’s phone, for example by the Home Assistant Companion app’s BLE transmitter. Used only when automatic profile selection by phone proximity is enabled in the scale options."
+            "phone_beacon_uuids": "UUIDs broadcast by this person’s phones or tags, for example by the Home Assistant Companion app’s BLE transmitter. Add one entry per device. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         }
       },
@@ -260,8 +260,8 @@
         "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
         "missing_sparky_api_key": "Enter an API key for the selected SparkyFitness account.",
         "duplicate_profile_name": "A profile with this name already exists.",
-        "invalid_beacon_uuid": "Enter a valid UUID, for example e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
-        "duplicate_beacon_uuid": "Another profile already uses this phone UUID."
+        "invalid_beacon_uuid": "Each entry must be a valid UUID, for example e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Another profile already uses one of these UUIDs."
       }
     }
   },

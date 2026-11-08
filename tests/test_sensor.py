@@ -203,7 +203,7 @@ async def test_phone_signal_sensor_only_for_profiles_with_a_beacon() -> None:
             "legacy": LEGACY_PROFILE,
             "second": {
                 **SECOND_PROFILE,
-                "phone_beacon_uuid": "e2c56db5-dffb-48d2-b060-d0f5a71096e0",
+                "phone_beacon_uuids": ["e2c56db5-dffb-48d2-b060-d0f5a71096e0"],
             },
         }
     )

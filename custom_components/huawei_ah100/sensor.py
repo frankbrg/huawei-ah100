@@ -22,7 +22,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_BEACON_UUID, CONF_LEGACY_PROFILE, CONF_PERSON, DOMAIN
+from .const import CONF_BEACON_UUIDS, CONF_LEGACY_PROFILE, CONF_PERSON, DOMAIN
 from .coordinator import HuaweiScaleCoordinator
 
 _OHM = "Ω"
@@ -90,7 +90,7 @@ async def async_setup_entry(
             for description in SENSOR_DESCRIPTIONS
         ]
         entities.append(HuaweiAH100SyncStatusSensor(coordinator, profile_id, profile))
-        if profile.get(CONF_BEACON_UUID):
+        if profile.get(CONF_BEACON_UUIDS):
             entities.append(HuaweiAH100PhoneSignalSensor(coordinator, profile_id, profile))
         async_add_entities(entities, config_subentry_id=profile_id)
 
@@ -203,7 +203,7 @@ class HuaweiAH100SyncStatusSensor(CoordinatorEntity[HuaweiScaleCoordinator], Sen
 
 
 class HuaweiAH100PhoneSignalSensor(SensorEntity):
-    """Expose the profile phone's signal at the scale to help tune the proximity threshold."""
+    """Expose the strongest phone signal of a profile at the scale to tune the threshold."""
 
     entity_description = PHONE_SIGNAL_DESCRIPTION
     _attr_has_entity_name = True

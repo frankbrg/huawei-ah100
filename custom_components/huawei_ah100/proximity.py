@@ -106,7 +106,7 @@ class PhoneProximity:
         return result
 
     def nearby_profile(self, threshold: int) -> str | None:
-        """Return the only profile whose phone is at or above the threshold."""
+        """Return the only profile with a phone at or above the threshold."""
         nearby = [
             profile_id for profile_id, rssi in self.rssi_by_profile().items() if rssi >= threshold
         ]

@@ -102,8 +102,8 @@ Après une confirmation, l’intégration émet `huawei_ah100_profile_confirmed`
 Si chaque membre du foyer porte un téléphone qui diffuse un iBeacon, la balance peut choisir le profil seule. L’application Home Assistant Companion pour Android le permet avec son capteur **Émetteur BLE** ; toute autre source iBeacon convient aussi. L’adresse Bluetooth du téléphone peut changer, c’est pourquoi l’intégration identifie les téléphones uniquement par leur UUID iBeacon.
 
 1. Sur chaque téléphone, activez l’émetteur iBeacon et notez son UUID.
-2. Modifiez chaque profil et saisissez cet UUID dans **UUID iBeacon du téléphone**. Un UUID ne peut appartenir qu’à un seul profil.
-3. Activez le capteur de diagnostic **Signal du téléphone** du profil, désactivé par défaut. Il indique la puissance du signal du téléphone au scanner Bluetooth qui capte le mieux la balance, par exemple un proxy Bluetooth ESPHome dans la salle de bain. Les mesures de plus de 10 secondes sont ignorées.
+2. Modifiez chaque profil et saisissez cet UUID dans **UUID iBeacon des téléphones**, une entrée par appareil. Un profil peut avoir plusieurs UUID, par exemple un téléphone et une balise, mais chaque UUID ne peut appartenir qu’à un seul profil.
+3. Activez le capteur de diagnostic **Signal du téléphone** du profil, désactivé par défaut. Il indique le signal le plus fort des appareils de ce profil au scanner Bluetooth qui capte le mieux la balance, par exemple un proxy Bluetooth ESPHome dans la salle de bain. Les mesures de plus de 10 secondes sont ignorées.
 4. Placez-vous sur la balance avec le téléphone là où vous le portez d’habitude et notez la valeur. Notez ensuite la valeur depuis l’endroit où se trouvent habituellement les autres personnes, par exemple la pièce voisine.
 5. Dans les options de l’intégration de la balance, activez **Choisir le profil selon la proximité du téléphone** et réglez **Seuil de signal pour la proximité du téléphone** entre ces deux valeurs. La valeur par défaut est -65 dBm.
 

@@ -23,7 +23,7 @@ from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_ALLOW_BIND,
-    CONF_BEACON_UUID,
+    CONF_BEACON_UUIDS,
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
@@ -118,7 +118,9 @@ def _profile_schema(
         }
     )
     if include_beacon:
-        fields[probatio.Optional(CONF_BEACON_UUID)] = selector({"text": {"type": "text"}})
+        fields[probatio.Optional(CONF_BEACON_UUIDS)] = selector(
+            {"text": {"type": "text", "multiple": True}}
+        )
     if include_connection:
         fields.update(_connection_fields())
     return probatio.Schema(fields)
@@ -211,9 +213,8 @@ def _profile_errors(
     if person is not None and _person_entity_id(person) is None:
         errors[CONF_PERSON] = "invalid_person"
 
-    beacon_uuid = user_input.get(CONF_BEACON_UUID)
-    if beacon_uuid not in (None, "") and normalize_beacon_uuid(beacon_uuid) is None:
-        errors[CONF_BEACON_UUID] = "invalid_beacon_uuid"
+    if _beacon_uuids(user_input.get(CONF_BEACON_UUIDS)) is None:
+        errors[CONF_BEACON_UUIDS] = "invalid_beacon_uuid"
 
     sparky_enabled = user_input.get(CONF_SPARKY_ENABLED, False)
     if not isinstance(sparky_enabled, bool):
@@ -313,21 +314,37 @@ def _profile_name_errors(
     return {}
 
 
+def _beacon_uuids(value: Any) -> list[str] | None:
+    """Return the canonical, de-duplicated UUIDs, or None if any entry is invalid."""
+    if value is None:
+        return []
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, list):
+        return None
+    result: list[str] = []
+    for item in values:
+        if isinstance(item, str) and not item.strip():
+            continue
+        if (uuid := normalize_beacon_uuid(item)) is None:
+            return None
+        if uuid not in result:
+            result.append(uuid)
+    return result
+
+
 def _beacon_errors(
     user_input: Mapping[str, Any],
     subentries: Mapping[str, Any],
     exclude_subentry_id: str | None = None,
 ) -> dict[str, str]:
-    beacon_uuid = normalize_beacon_uuid(user_input.get(CONF_BEACON_UUID))
-    if beacon_uuid is None:
-        return {}
+    beacon_uuids = set(_beacon_uuids(user_input.get(CONF_BEACON_UUIDS)) or ())
     for subentry in subentries.values():
         if (
             subentry.subentry_type == SUBENTRY_PROFILE
             and subentry.subentry_id != exclude_subentry_id
-            and subentry.data.get(CONF_BEACON_UUID) == beacon_uuid
+            and beacon_uuids.intersection(subentry.data.get(CONF_BEACON_UUIDS, ()))
         ):
-            return {CONF_BEACON_UUID: "duplicate_beacon_uuid"}
+            return {CONF_BEACON_UUIDS: "duplicate_beacon_uuid"}
     return {}
 
 
@@ -355,8 +372,8 @@ def _profile_data(
     }
     if person := _person_entity_id(user_input.get(CONF_PERSON)):
         data[CONF_PERSON] = person
-    if beacon_uuid := normalize_beacon_uuid(user_input.get(CONF_BEACON_UUID)):
-        data[CONF_BEACON_UUID] = beacon_uuid
+    if beacon_uuids := _beacon_uuids(user_input.get(CONF_BEACON_UUIDS)):
+        data[CONF_BEACON_UUIDS] = beacon_uuids
 
     sparky_url = user_input.get(CONF_SPARKY_URL) or (existing_data or {}).get(CONF_SPARKY_URL)
     if isinstance(sparky_url, str) and sparky_url.strip():

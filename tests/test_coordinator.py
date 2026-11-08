@@ -1141,16 +1141,26 @@ async def test_confirmation_ble_path_requests_only_on_wake_and_routes_only_to_cl
 
 
 BEACON_UUID = "e2c56db5-dffb-48d2-b060-d0f5a71096e0"
+TAG_UUID = "74278bda-b644-4520-8f0c-720eaf059935"
 
 
 def make_beacon_entry(options):
     return make_entry(
         profiles={
             "alice": {**PROFILE, "legacy_profile": True},
-            "bob": {**PROFILE, "initial_weight_kg": 65.0, "phone_beacon_uuid": BEACON_UUID},
+            "bob": {
+                **PROFILE,
+                "initial_weight_kg": 65.0,
+                "phone_beacon_uuids": [BEACON_UUID, TAG_UUID],
+            },
         },
         options=options,
     )
+
+
+async def test_every_beacon_of_a_profile_maps_to_it(coordinator):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_beacon_entry({}))
+    assert scale._proximity._profiles_by_uuid == {BEACON_UUID: "bob", TAG_UUID: "bob"}
 
 
 async def test_profiles_without_beacons_have_no_proximity_tracker(coordinator):

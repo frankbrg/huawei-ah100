@@ -208,3 +208,20 @@ async def test_real_manager_delivers_non_connectable_ibeacons(tmp_path) -> None:
     finally:
         manager.async_stop()
         await hass.async_stop(force=True)
+
+
+def test_several_beacons_of_one_profile_count_once_with_the_strongest_signal(
+    radio: FakeRadio,
+) -> None:
+    tag = "11:22:33:44:55:03"
+    radio.see("bath", SCALE, -55)
+    radio.see("bath", ALICE_PHONE, -70)
+    radio.see("bath", tag, -58)
+    tracker = PhoneProximity(Mock(), SCALE, {ALICE_UUID: "alice", BOB_UUID: "alice"})
+    for address, uuid in ((ALICE_PHONE, ALICE_UUID), (tag, BOB_UUID)):
+        tracker._advertisement(
+            SimpleNamespace(address=address, manufacturer_data=_ibeacon(uuid)), None
+        )
+
+    assert tracker.rssi_by_profile() == {"alice": -58}
+    assert tracker.nearby_profile(-65) == "alice"

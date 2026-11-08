@@ -23,7 +23,7 @@ from custom_components.huawei_ah100.config_flow import (
 from custom_components.huawei_ah100.const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
-    CONF_BEACON_UUID,
+    CONF_BEACON_UUIDS,
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
@@ -779,61 +779,107 @@ async def test_options_flow_rejects_invalid_proximity_settings(
 
 
 BEACON_UUID = "e2c56db5-dffb-48d2-b060-d0f5a71096e0"
+SECOND_BEACON_UUID = "74278bda-b644-4520-8f0c-720eaf059935"
 
 
-def test_beacon_uuid_is_only_offered_for_profile_subentries() -> None:
-    assert CONF_BEACON_UUID in [key.schema for key in PROFILE_SCHEMA.schema]
-    assert CONF_BEACON_UUID not in [key.schema for key in USER_SCHEMA.schema]
+def test_beacon_uuids_are_only_offered_for_profile_subentries() -> None:
+    assert CONF_BEACON_UUIDS in [key.schema for key in PROFILE_SCHEMA.schema]
+    assert CONF_BEACON_UUIDS not in [key.schema for key in USER_SCHEMA.schema]
 
 
 @pytest.mark.parametrize(
-    "beacon_uuid",
-    [BEACON_UUID.upper(), BEACON_UUID.replace("-", ""), f" {BEACON_UUID} "],
+    ("beacon_uuids", "expected"),
+    [
+        pytest.param([BEACON_UUID.upper()], [BEACON_UUID], id="uppercase"),
+        pytest.param([BEACON_UUID.replace("-", "")], [BEACON_UUID], id="without_hyphens"),
+        pytest.param([f" {BEACON_UUID} ", ""], [BEACON_UUID], id="whitespace_and_blank"),
+        pytest.param(
+            [BEACON_UUID, SECOND_BEACON_UUID, BEACON_UUID.upper()],
+            [BEACON_UUID, SECOND_BEACON_UUID],
+            id="several_devices_deduplicated",
+        ),
+        pytest.param(BEACON_UUID, [BEACON_UUID], id="single_string"),
+    ],
 )
-async def test_profile_add_stores_canonical_beacon_uuid(beacon_uuid: str) -> None:
+async def test_profile_add_stores_canonical_beacon_uuids(
+    beacon_uuids: list[str] | str, expected: list[str]
+) -> None:
     flow = _profile_flow(_profile_entry([_profile_subentry()]))
 
-    result = await flow.async_step_user(_profile_input(name="Alex", phone_beacon_uuid=beacon_uuid))
+    result = await flow.async_step_user(
+        _profile_input(name="Alex", phone_beacon_uuids=beacon_uuids)
+    )
 
     assert result["type"] == "create_entry"
-    assert result["data"][CONF_BEACON_UUID] == BEACON_UUID
+    assert result["data"][CONF_BEACON_UUIDS] == expected
 
 
-async def test_profile_add_rejects_invalid_beacon_uuid() -> None:
+async def test_profile_add_without_beacons_stores_no_beacon_key() -> None:
     flow = _profile_flow(_profile_entry([_profile_subentry()]))
 
-    result = await flow.async_step_user(_profile_input(name="Alex", phone_beacon_uuid="phone"))
+    result = await flow.async_step_user(_profile_input(name="Alex", phone_beacon_uuids=[""]))
+
+    assert result["type"] == "create_entry"
+    assert CONF_BEACON_UUIDS not in result["data"]
+
+
+@pytest.mark.parametrize(
+    "beacon_uuids",
+    [
+        pytest.param([BEACON_UUID, "phone"], id="one_invalid_entry"),
+        pytest.param(42, id="not_a_list"),
+    ],
+)
+async def test_profile_add_rejects_invalid_beacon_uuids(beacon_uuids: object) -> None:
+    flow = _profile_flow(_profile_entry([_profile_subentry()]))
+
+    result = await flow.async_step_user(
+        _profile_input(name="Alex", phone_beacon_uuids=beacon_uuids)
+    )
 
     assert result["type"] == "form"
-    assert result["errors"] == {CONF_BEACON_UUID: "invalid_beacon_uuid"}
+    assert result["errors"] == {CONF_BEACON_UUIDS: "invalid_beacon_uuid"}
 
 
 async def test_profile_add_rejects_beacon_uuid_of_another_profile() -> None:
     existing = _profile_subentry(
-        data={**_profile_data(_profile_input(), legacy_profile=True), CONF_BEACON_UUID: BEACON_UUID}
+        data={
+            **_profile_data(_profile_input(), legacy_profile=True),
+            CONF_BEACON_UUIDS: [SECOND_BEACON_UUID, BEACON_UUID],
+        }
     )
     flow = _profile_flow(_profile_entry([existing]))
 
     result = await flow.async_step_user(
-        _profile_input(name="Alex", phone_beacon_uuid=BEACON_UUID.upper())
+        _profile_input(
+            name="Alex",
+            phone_beacon_uuids=["00000000-0000-0000-0000-000000000001", BEACON_UUID.upper()],
+        )
     )
 
     assert result["type"] == "form"
-    assert result["errors"] == {CONF_BEACON_UUID: "duplicate_beacon_uuid"}
+    assert result["errors"] == {CONF_BEACON_UUIDS: "duplicate_beacon_uuid"}
 
 
 @pytest.mark.parametrize(
     ("beacon_input", "expected"),
     [
-        pytest.param({CONF_BEACON_UUID: BEACON_UUID}, {CONF_BEACON_UUID: BEACON_UUID}, id="kept"),
+        pytest.param(
+            {CONF_BEACON_UUIDS: [BEACON_UUID, SECOND_BEACON_UUID]},
+            {CONF_BEACON_UUIDS: [BEACON_UUID, SECOND_BEACON_UUID]},
+            id="kept_and_extended",
+        ),
         pytest.param({}, {}, id="cleared"),
     ],
 )
-async def test_profile_reconfigure_keeps_own_beacon_uuid_or_clears_it(
-    beacon_input: dict[str, str], expected: dict[str, str]
+async def test_profile_reconfigure_keeps_own_beacon_uuids_or_clears_them(
+    beacon_input: dict[str, list[str]], expected: dict[str, list[str]]
 ) -> None:
     subentry = _profile_subentry(
-        data={**_profile_data(_profile_input(), legacy_profile=True), CONF_BEACON_UUID: BEACON_UUID}
+        data={
+            **_profile_data(_profile_input(), legacy_profile=True),
+            CONF_BEACON_UUIDS: [BEACON_UUID],
+        }
     )
     flow = _profile_flow(_profile_entry([subentry]), reconfigure_subentry_id=subentry.subentry_id)
 
@@ -841,4 +887,4 @@ async def test_profile_reconfigure_keeps_own_beacon_uuid_or_clears_it(
 
     assert result["type"] == "abort"
     data = flow.hass.config_entries.async_update_subentry.call_args.kwargs["data"]
-    assert {key: data[key] for key in data if key == CONF_BEACON_UUID} == expected
+    assert {key: data[key] for key in data if key == CONF_BEACON_UUIDS} == expected

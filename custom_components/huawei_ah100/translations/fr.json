@@ -201,7 +201,7 @@
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
             "sparky_api_key": "Clé API SparkyFitness",
-            "phone_beacon_uuid": "UUID iBeacon du téléphone (facultatif)"
+            "phone_beacon_uuids": "UUID iBeacon des téléphones (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
@@ -213,7 +213,7 @@
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
-            "phone_beacon_uuid": "UUID diffusé par le téléphone de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Utilisé uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
+            "phone_beacon_uuids": "UUID diffusés par les téléphones ou balises de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         },
         "reconfigure": {
@@ -229,7 +229,7 @@
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
             "sparky_api_key": "Clé API SparkyFitness",
-            "phone_beacon_uuid": "UUID iBeacon du téléphone (facultatif)"
+            "phone_beacon_uuids": "UUID iBeacon des téléphones (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
@@ -241,7 +241,7 @@
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
             "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas.",
-            "phone_beacon_uuid": "UUID diffusé par le téléphone de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Utilisé uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
+            "phone_beacon_uuids": "UUID diffusés par les téléphones ou balises de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         }
       },
@@ -260,8 +260,8 @@
         "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
         "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
         "duplicate_profile_name": "Un profil portant ce nom existe déjà.",
-        "invalid_beacon_uuid": "Saisissez un UUID valide, par exemple e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
-        "duplicate_beacon_uuid": "Un autre profil utilise déjà cet UUID de téléphone."
+        "invalid_beacon_uuid": "Chaque entrée doit être un UUID valide, par exemple e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Un autre profil utilise déjà l’un de ces UUID."
       }
     }
   },

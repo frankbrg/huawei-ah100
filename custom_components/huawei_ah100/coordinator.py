@@ -26,7 +26,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
-    CONF_BEACON_UUID,
+    CONF_BEACON_UUIDS,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
     CONF_PROXIMITY_ENABLED,
@@ -106,9 +106,9 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             hass, entry.entry_id, self._profiles, self._profile_claimed
         )
         beacons = {
-            profile[CONF_BEACON_UUID]: profile_id
+            beacon_uuid: profile_id
             for profile_id, profile in self._profiles.items()
-            if profile.get(CONF_BEACON_UUID)
+            for beacon_uuid in profile.get(CONF_BEACON_UUIDS, ())
         }
         self._proximity = PhoneProximity(hass, self.address, beacons) if beacons else None
         self.data = {}
@@ -129,7 +129,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return dict(reading) if reading is not None else None
 
     def phone_rssi(self, profile_id: str) -> int | None:
-        """Return the profile phone's recent RSSI at the scanner closest to the scale."""
+        """Return the strongest recent RSSI of the profile's phones at the scale's scanner."""
         if self._proximity is None:
             return None
         return self._proximity.rssi_by_profile().get(profile_id)
