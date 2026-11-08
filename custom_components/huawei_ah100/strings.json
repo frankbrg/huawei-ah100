@@ -10,7 +10,7 @@
       "future_birth_date": "The birth date cannot be in the future.",
       "height_not_integer": "Enter height as a whole number of centimeters.",
       "invalid_allow_bind": "Choose whether pairing is allowed.",
-      "invalid_birth_date": "Enter a valid date (YYYY-MM-DD or DD.MM.YYYY).",
+      "invalid_birth_date": "Enter a valid date.",
       "invalid_height": "Height must be between 1 and 255 cm.",
       "invalid_mac": "Enter a valid Bluetooth MAC address.",
       "invalid_name": "Enter a profile name.",
@@ -30,7 +30,7 @@
         "description": "Set up the first profile and shared scale connection options below. After submitting, close Huawei Health, weigh barefoot, and stand still until the scale finishes. Sensors populate after Home Assistant receives an actual measurement.",
         "data": {
           "name": "Profile name",
-          "birth_date": "Birth date (YYYY-MM-DD)",
+          "birth_date": "Birth date",
           "height_cm": "Height (cm)",
           "sex": "Sex",
           "initial_weight_kg": "Initial weight hint (kg)",
@@ -43,7 +43,7 @@
         },
         "data_description": {
           "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
-          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+          "birth_date": "Enter the profile user’s actual date of birth.",
           "height_cm": "Enter the profile user’s height in whole centimeters.",
           "sex": "Choose the profile user’s sex.",
           "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
@@ -76,7 +76,7 @@
         "data": {
           "address": "Bluetooth MAC address",
           "name": "Profile name",
-          "birth_date": "Birth date (YYYY-MM-DD)",
+          "birth_date": "Birth date",
           "height_cm": "Height (cm)",
           "sex": "Sex",
           "initial_weight_kg": "Initial weight hint (kg)",
@@ -90,7 +90,7 @@
         "data_description": {
           "address": "Enter the scale Bluetooth MAC address only for manual setup.",
           "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
-          "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+          "birth_date": "Enter the profile user’s actual date of birth.",
           "height_cm": "Enter the profile user’s height in whole centimeters.",
           "sex": "Choose the profile user’s sex.",
           "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
@@ -215,7 +215,7 @@
           "description": "Create a separate profile for one scale user. Select it for the next weighing, or let the scale assign it automatically.",
           "data": {
             "name": "Profile name",
-            "birth_date": "Birth date (YYYY-MM-DD)",
+            "birth_date": "Birth date",
             "height_cm": "Height (cm)",
             "sex": "Sex",
             "initial_weight_kg": "Initial weight hint (kg)",
@@ -227,7 +227,7 @@
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
-            "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+            "birth_date": "Enter the profile user’s actual date of birth.",
             "height_cm": "Enter the profile user’s height in whole centimeters.",
             "sex": "Choose the profile user’s sex.",
             "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
@@ -243,7 +243,7 @@
           "description": "Update this profile’s settings. Select it for the next weighing, or let the scale assign it automatically.",
           "data": {
             "name": "Profile name",
-            "birth_date": "Birth date (YYYY-MM-DD)",
+            "birth_date": "Birth date",
             "height_cm": "Height (cm)",
             "sex": "Sex",
             "initial_weight_kg": "Initial weight hint (kg)",
@@ -255,7 +255,7 @@
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
-            "birth_date": "Enter the profile user’s actual date of birth. Format: YYYY-MM-DD. Fictional example: 2000-01-31.",
+            "birth_date": "Enter the profile user’s actual date of birth.",
             "height_cm": "Enter the profile user’s height in whole centimeters.",
             "sex": "Choose the profile user’s sex.",
             "initial_weight_kg": "Starting value for the scale profile only; this is not a measurement or sensor reading.",
@@ -271,7 +271,7 @@
         "age_out_of_range": "The profile age must be 127 or younger.",
         "future_birth_date": "The birth date cannot be in the future.",
         "height_not_integer": "Enter height as a whole number of centimeters.",
-        "invalid_birth_date": "Enter a valid date (YYYY-MM-DD or DD.MM.YYYY).",
+        "invalid_birth_date": "Enter a valid date.",
         "invalid_height": "Height must be between 1 and 255 cm.",
         "invalid_name": "Enter a profile name.",
         "invalid_person": "Select a valid Home Assistant person.",

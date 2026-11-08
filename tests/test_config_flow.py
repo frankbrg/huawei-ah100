@@ -193,7 +193,6 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
     assert user_input[CONF_ALLOW_BIND] is False
     assert user_input[CONF_NAME] == "Profile 1"
     assert user_input[CONF_SPARKY_ENABLED] is False
-    assert USER_SCHEMA.schema[CONF_BIRTH_DATE].config["type"] == "text"
     assert CONF_REQUIRE_PROFILE_CONFIRMATION not in [key.schema for key in USER_SCHEMA.schema]
     assert _profile_errors(user_input, date(2026, 10, 25)) == {}
     assert _connection_data(user_input) == {
@@ -212,6 +211,12 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
         value for key, value in PROFILE_SCHEMA.schema.items() if key.schema == CONF_PERSON
     )
     assert person_selector.config["domain"] == ["person"]
+    # A date picker lets the frontend use the user's HA language and date format.
+    birth_date_selector = next(
+        value for key, value in PROFILE_SCHEMA.schema.items() if key.schema == CONF_BIRTH_DATE
+    )
+    assert type(birth_date_selector).__name__ == "DateSelector"
+    assert birth_date_selector("2000-01-02") == "2000-01-02"
     assert CONF_PERSON in [key.schema for key in USER_SCHEMA.schema]
     assert CONF_PERSON in [key.schema for key in PROFILE_SCHEMA.schema]
 
@@ -220,14 +225,7 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
     ("birth_date", "canonical"),
     [
         ("2000-01-02", "2000-01-02"),
-        ("02/01/2000", "2000-01-02"),
-        ("01/02/2000", "2000-02-01"),
-        ("29/02/2024", "2024-02-29"),
-        ("1/02/2000", "2000-02-01"),
-        ("02.01.2000", "2000-01-02"),
-        ("2.1.2000", "2000-01-02"),
-        ("29.02.2024", "2024-02-29"),
-        (" 2000-01-02 ", "2000-01-02"),
+        ("2024-02-29", "2024-02-29"),
     ],
 )
 def test_birth_date_formats_store_iso(birth_date: str, canonical: str) -> None:
@@ -242,7 +240,7 @@ def test_birth_date_formats_store_iso(birth_date: str, canonical: str) -> None:
     [
         "29/02/2023",
         "2023-02-29",
-        "29.02.2023",
+        "02.01.2000",
         "01-02-2000",
         "01/02/03",
         "01.02.03",
@@ -255,13 +253,6 @@ def test_birth_date_rejects_invalid_or_malformed_values(birth_date: str) -> None
     assert _profile_errors(
         {**_profile_input(), CONF_BIRTH_DATE: birth_date}, date(2026, 10, 25)
     ) == {CONF_BIRTH_DATE: "invalid_birth_date"}
-
-
-@pytest.mark.parametrize("birth_date", ["26/10/2026", "26.10.2026"])
-def test_day_first_birth_date_still_rejects_future_dates(birth_date: str) -> None:
-    assert _profile_errors(
-        {**_profile_input(), CONF_BIRTH_DATE: birth_date}, date(2026, 10, 25)
-    ) == {CONF_BIRTH_DATE: "future_birth_date"}
 
 
 @pytest.mark.parametrize(

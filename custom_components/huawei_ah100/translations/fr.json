@@ -10,7 +10,7 @@
       "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
       "height_not_integer": "Saisissez une taille entière en centimètres.",
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
-      "invalid_birth_date": "Saisissez une date valide (JJ/MM/AAAA ou AAAA-MM-JJ).",
+      "invalid_birth_date": "Saisissez une date valide.",
       "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
       "invalid_mac": "Saisissez une adresse MAC Bluetooth valide.",
       "invalid_name": "Saisissez un nom de profil.",
@@ -30,7 +30,7 @@
         "description": "Configurez ci-dessous le premier profil et les options de connexion partagées. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "data": {
           "name": "Nom du profil",
-          "birth_date": "Date de naissance (JJ/MM/AAAA)",
+          "birth_date": "Date de naissance",
           "height_cm": "Taille (cm)",
           "sex": "Sexe",
           "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -43,7 +43,7 @@
         },
         "data_description": {
           "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
@@ -76,7 +76,7 @@
         "data": {
           "address": "Adresse MAC Bluetooth",
           "name": "Nom du profil",
-          "birth_date": "Date de naissance (JJ/MM/AAAA)",
+          "birth_date": "Date de naissance",
           "height_cm": "Taille (cm)",
           "sex": "Sexe",
           "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -90,7 +90,7 @@
         "data_description": {
           "address": "Saisissez l’adresse MAC Bluetooth de la balance uniquement pour la configuration manuelle.",
           "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
@@ -215,7 +215,7 @@
           "description": "Créez un profil distinct pour une personne. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
-            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "birth_date": "Date de naissance",
             "height_cm": "Taille (cm)",
             "sex": "Sexe",
             "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -227,7 +227,7 @@
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
@@ -243,7 +243,7 @@
           "description": "Modifiez les réglages de ce profil. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
-            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "birth_date": "Date de naissance",
             "height_cm": "Taille (cm)",
             "sex": "Sexe",
             "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -255,7 +255,7 @@
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
@@ -271,7 +271,7 @@
         "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
         "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
         "height_not_integer": "Saisissez une taille entière en centimètres.",
-        "invalid_birth_date": "Saisissez une date valide (JJ/MM/AAAA ou AAAA-MM-JJ).",
+        "invalid_birth_date": "Saisissez une date valide.",
         "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
         "invalid_name": "Saisissez un nom de profil.",
         "invalid_person": "Sélectionnez une personne Home Assistant valide.",

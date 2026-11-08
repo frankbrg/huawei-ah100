@@ -10,7 +10,7 @@
       "future_birth_date": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
       "height_not_integer": "Gib die Körpergröße als ganze Zahl in Zentimetern ein.",
       "invalid_allow_bind": "Wähle, ob die Kopplung erlaubt ist.",
-      "invalid_birth_date": "Gib ein gültiges Datum im Format JJJJ-MM-TT ein.",
+      "invalid_birth_date": "Gib ein gültiges Datum ein.",
       "invalid_height": "Die Körpergröße muss zwischen 1 und 255 cm liegen.",
       "invalid_mac": "Gib eine gültige Bluetooth-MAC-Adresse ein.",
       "invalid_name": "Gib einen Profilnamen ein.",
@@ -30,7 +30,7 @@
         "description": "Richte unten das erste Profil und die gemeinsamen Verbindungsoptionen der Waage ein. Schließe danach Huawei Health, wiege dich barfuß und bleib still stehen, bis die Waage fertig ist. Die Sensoren erhalten Werte, sobald Home Assistant eine echte Messung empfangen hat.",
         "data": {
           "name": "Profilname",
-          "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+          "birth_date": "Geburtsdatum",
           "height_cm": "Körpergröße (cm)",
           "sex": "Geschlecht",
           "initial_weight_kg": "Startgewicht als Hinweis (kg)",
@@ -43,7 +43,7 @@
         },
         "data_description": {
           "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
-          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein.",
           "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
           "sex": "Wähle das Geschlecht der Person.",
           "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
@@ -76,7 +76,7 @@
         "data": {
           "address": "Bluetooth-MAC-Adresse",
           "name": "Profilname",
-          "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+          "birth_date": "Geburtsdatum",
           "height_cm": "Körpergröße (cm)",
           "sex": "Geschlecht",
           "initial_weight_kg": "Startgewicht als Hinweis (kg)",
@@ -90,7 +90,7 @@
         "data_description": {
           "address": "Gib die Bluetooth-MAC-Adresse der Waage nur bei manueller Einrichtung ein.",
           "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
-          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+          "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein.",
           "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
           "sex": "Wähle das Geschlecht der Person.",
           "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
@@ -215,7 +215,7 @@
           "description": "Lege ein eigenes Profil für eine Person an, die die Waage nutzt. Wähle es für die nächste Wägung aus oder lass die Waage es automatisch zuordnen.",
           "data": {
             "name": "Profilname",
-            "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+            "birth_date": "Geburtsdatum",
             "height_cm": "Körpergröße (cm)",
             "sex": "Geschlecht",
             "initial_weight_kg": "Startgewicht als Hinweis (kg)",
@@ -227,7 +227,7 @@
           },
           "data_description": {
             "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
-            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein.",
             "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
             "sex": "Wähle das Geschlecht der Person.",
             "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
@@ -243,7 +243,7 @@
           "description": "Ändere die Einstellungen dieses Profils. Wähle es für die nächste Wägung aus oder lass die Waage es automatisch zuordnen.",
           "data": {
             "name": "Profilname",
-            "birth_date": "Geburtsdatum (JJJJ-MM-TT)",
+            "birth_date": "Geburtsdatum",
             "height_cm": "Körpergröße (cm)",
             "sex": "Geschlecht",
             "initial_weight_kg": "Startgewicht als Hinweis (kg)",
@@ -255,7 +255,7 @@
           },
           "data_description": {
             "name": "Wähle einen eindeutigen Namen für das Waagenprofil dieser Person. Beim Umbenennen bleibt der Sensorverlauf des Profils erhalten.",
-            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein. Format: JJJJ-MM-TT. Erfundenes Beispiel: 2000-01-31.",
+            "birth_date": "Gib das tatsächliche Geburtsdatum der Person ein.",
             "height_cm": "Gib die Körpergröße der Person in ganzen Zentimetern ein.",
             "sex": "Wähle das Geschlecht der Person.",
             "initial_weight_kg": "Nur ein Startwert für das Waagenprofil; das ist keine Messung und kein Sensorwert.",
@@ -271,7 +271,7 @@
         "age_out_of_range": "Das Alter im Profil darf höchstens 127 Jahre betragen.",
         "future_birth_date": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
         "height_not_integer": "Gib die Körpergröße als ganze Zahl in Zentimetern ein.",
-        "invalid_birth_date": "Gib ein gültiges Datum im Format JJJJ-MM-TT ein.",
+        "invalid_birth_date": "Gib ein gültiges Datum ein.",
         "invalid_height": "Die Körpergröße muss zwischen 1 und 255 cm liegen.",
         "invalid_name": "Gib einen Profilnamen ein.",
         "invalid_person": "Wähle eine gültige Home-Assistant-Person.",

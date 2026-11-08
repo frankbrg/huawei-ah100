@@ -54,8 +54,6 @@ _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
 _ISO_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-_FRENCH_DATE_RE = re.compile(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$")
-_GERMAN_DATE_RE = re.compile(r"^[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4}$")
 _MANUAL_DEVICE = "manual"
 
 
@@ -97,7 +95,8 @@ def _profile_schema(
             probatio.Required(CONF_NAME, default=name_default): selector(
                 {"text": {"type": "text"}}
             ),
-            probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "text"}}),
+            # The frontend shows the date picker in the user's HA language and date format.
+            probatio.Required(CONF_BIRTH_DATE): selector({"date": {}}),
             probatio.Required(CONF_HEIGHT): selector(
                 {"number": {"min": 1, "max": 255, "step": 1, "mode": "box"}}
             ),
@@ -170,12 +169,6 @@ def _as_date(value: Any) -> date | None:
     try:
         if _ISO_DATE_RE.fullmatch(value):
             return date.fromisoformat(value)
-        if _FRENCH_DATE_RE.fullmatch(value):
-            day, month, year = (int(part) for part in value.split("/"))
-            return date(year, month, day)
-        if _GERMAN_DATE_RE.fullmatch(value):
-            day, month, year = (int(part) for part in value.split("."))
-            return date(year, month, day)
     except ValueError:
         pass
     return None
