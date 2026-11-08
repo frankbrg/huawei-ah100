@@ -109,6 +109,16 @@ Si chaque membre du foyer porte un téléphone qui diffuse un iBeacon, la balanc
 
 Au réveil de la balance, si exactement un téléphone de profil atteint au moins le seuil à ce scanner, son profil est utilisé pour cette pesée. Sans confirmation du profil, le sélecteur **Profil actif** ne change pas ; seule cette session utilise le profil détecté. Avec **Confirmer le profil à chaque pesée**, l’intégration confirme elle-même le profil : elle n’émet pas `huawei_ah100_weighing_requested` et émet `huawei_ah100_profile_confirmed` avec `source: proximity`. Si aucun téléphone ou plusieurs téléphones sont proches, la balance se comporte exactement comme sans cette option. Les UUID des téléphones et les mesures de signal restent dans Home Assistant et ne sont jamais envoyés à SparkyFitness.
 
+## Contrôle de plausibilité du poids
+
+Activez **Vérifier que le poids correspond au profil** dans les options de l’intégration de la balance pour repérer les pesées enregistrées pour la mauvaise personne. Chaque pesée est comparée à la dernière pesée du profil datant de moins de 30 jours :
+
+- un écart jusqu’à 10 % est accepté si la proximité du téléphone ou une confirmation a choisi le profil, jusqu’à 5 % s’il vient du sélecteur **Profil actif** ;
+- avant la première pesée d’un profil, son poids initial indicatif sert de référence avec 10 % ;
+- si la dernière pesée date de plus de 30 jours, la pesée est acceptée sans contrôle, afin qu’une longue pause ou un régime ne fasse pas perdre de données.
+
+Si une pesée ne correspond pas, elle est attribuée au seul autre profil à moins de 5 %. La balance a calculé la masse grasse avec la taille, l’âge et le sexe du mauvais profil ; une pesée déplacée conserve donc le poids et l’impédance, mais pas la masse grasse, et `huawei_ah100_measurement_saved` contient alors `redirected_from`. Si aucun autre profil ou plusieurs profils correspondent, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `entry_id`, `profile_id`, `reason`, `weight_kg`, `reference_weight_kg` et `impedance_ohm`. Le contrôle ne peut pas distinguer des personnes dont les poids diffèrent de moins de 5 %.
+
 ## Synchronisation SparkyFitness
 
 La synchronisation SparkyFitness est facultative et se configure séparément dans chaque profil :

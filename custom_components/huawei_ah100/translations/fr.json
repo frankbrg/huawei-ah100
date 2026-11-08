@@ -111,7 +111,8 @@
       "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
       "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier.",
       "invalid_proximity_enabled": "Indiquez si la proximité du téléphone choisit le profil.",
-      "invalid_proximity_rssi": "Le seuil doit être un nombre entier entre -100 et -30 dBm."
+      "invalid_proximity_rssi": "Le seuil doit être un nombre entier entre -100 et -30 dBm.",
+      "invalid_weight_check": "Indiquez si le poids doit être vérifié."
     },
     "step": {
       "init": {
@@ -121,6 +122,7 @@
           "user_id": "Identifiant utilisateur de la balance",
           "allow_bind": "Autoriser l’association",
           "require_profile_confirmation": "Confirmer le profil à chaque pesée",
+          "weight_plausibility_check": "Vérifier que le poids correspond au profil",
           "proximity_profile_selection": "Choisir le profil selon la proximité du téléphone",
           "proximity_rssi_threshold": "Seuil de signal pour la proximité du téléphone"
         },
@@ -128,6 +130,7 @@
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
           "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse.",
+          "weight_plausibility_check": "Compare chaque pesée à la dernière pesée du profil datant de moins de 30 jours. Écart admis : 10 % si la proximité du téléphone ou une confirmation a choisi le profil, 5 % sinon, 10 % par rapport au poids initial indicatif avant la première pesée. En cas d’écart, la pesée est attribuée au seul autre profil à moins de 5 %, sans masse grasse, car la balance l’a calculée avec le mauvais profil. Sinon, la pesée est ignorée et huawei_ah100_measurement_rejected est émis.",
           "proximity_profile_selection": "Au réveil de la balance, si exactement un téléphone de profil est proche du scanner Bluetooth qui capte le mieux la balance, ce profil est utilisé. Sinon, le profil actif ou la demande de confirmation s’applique comme avant.",
           "proximity_rssi_threshold": "Puissance de signal minimale du téléphone au scanner de la balance. Aidez-vous du capteur de diagnostic Signal du téléphone du profil ; plus proche signifie plus fort, par exemple -55 dBm au lieu de -75 dBm."
         }

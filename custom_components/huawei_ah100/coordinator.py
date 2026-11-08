@@ -27,6 +27,7 @@ from .const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
     CONF_BEACON_UUIDS,
+    CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
     CONF_PROXIMITY_ENABLED,
@@ -34,6 +35,7 @@ from .const import (
     CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SPARKY_ENABLED,
     CONF_USER_ID,
+    CONF_WEIGHT_CHECK,
     DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
     NAME,
@@ -41,6 +43,7 @@ from .const import (
     SUBENTRY_PROFILE,
 )
 from .identity import IdentityRequests
+from .plausibility import REFERENCE_MAX_AGE, Outcome, WeightReference, check_weight
 from .proximity import PhoneProximity
 from .session import AuthenticationError, SessionProfile, run_session
 from .sparky import SparkyClient, destination_from_profile, measurement_day
@@ -331,7 +334,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 return None
 
             async def save(measurement: dict[str, Any]) -> None:
-                await self._async_measurement(measurement, profile_id)
+                # A confirmed or proximity-detected owner is trusted more than the selector.
+                await self._async_measurement(measurement, profile_id, verified=True)
                 self._identity.finish(wake_id)
 
             return SessionProfile(self._profile_snapshot(profile_id), save)
@@ -362,6 +366,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         }
         if person := self._profiles[profile_id].get(CONF_PERSON):
             payload[CONF_PERSON] = person
+        if redirected_from := measurement.get("redirected_from"):
+            payload["redirected_from"] = redirected_from
         event = "measurement_saved"
         if sync_status is not None:
             payload["sync_status"] = sync_status
@@ -378,14 +384,62 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._readings, self._pending_sync, self._sync_state = readings, pending, states
         self._publish()
 
+    def _weight_reference(self, profile_id: str) -> WeightReference | None:
+        if (reading := self._readings.get(profile_id)) is None:
+            return WeightReference(self._profiles[profile_id][CONF_INITIAL_WEIGHT], initial=True)
+        received_at = datetime.fromisoformat(reading["received_at"])
+        if dt_util.utcnow() - received_at > REFERENCE_MAX_AGE:
+            return None
+        return WeightReference(reading["weight_kg"])
+
+    def _checked_profile(
+        self, measurement: dict[str, Any], profile_id: str, verified: bool
+    ) -> tuple[str | None, dict[str, Any]]:
+        if not self._settings.get(CONF_WEIGHT_CHECK, False):
+            return profile_id, measurement
+        references = {other_id: self._weight_reference(other_id) for other_id in self._profiles}
+        outcome, target = check_weight(
+            measurement["weight_kg"], profile_id, references, verified=verified
+        )
+        if outcome is Outcome.ACCEPTED:
+            return profile_id, measurement
+        if outcome is Outcome.REDIRECTED:
+            _LOGGER.info("Weighing did not fit profile %s and was moved to %s", profile_id, target)
+            # The scale derived body fat from the wrong profile's height, age, and sex.
+            redirected = {
+                key: value for key, value in measurement.items() if key != "fat_raw_tenths"
+            }
+            return target, {**redirected, "fat_percent": None, "redirected_from": profile_id}
+        _LOGGER.info("Weighing did not fit profile %s or any other profile", profile_id)
+        reference = references[profile_id]
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_measurement_rejected",
+            {
+                "entry_id": self.entry.entry_id,
+                "profile_id": profile_id,
+                "reason": "weight_mismatch",
+                "weight_kg": measurement["weight_kg"],
+                "reference_weight_kg": reference.weight_kg if reference else None,
+                "impedance_ohm": measurement.get("impedance_ohm"),
+            },
+        )
+        return None, measurement
+
     async def _async_measurement(
-        self, measurement: dict[str, Any], profile_id: str | None = None
+        self,
+        measurement: dict[str, Any],
+        profile_id: str | None = None,
+        *,
+        verified: bool = False,
     ) -> None:
         if profile_id is None and self._settings.get(CONF_REQUIRE_PROFILE_CONFIRMATION, False):
             raise ValueError("measurement profile is required")
         profile_id = profile_id or self._active_profile_id
         if profile_id not in self._profiles:
             raise ValueError("measurement profile does not exist")
+        profile_id, measurement = self._checked_profile(measurement, profile_id, verified)
+        if profile_id is None:
+            return
         payload = {
             **measurement,
             "received_at": dt_util.utcnow().isoformat(),
@@ -423,15 +477,20 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             if device is None:
                 continue
             # Keep this session's readings bound to its profile, even if the user switches profiles.
-            profile_id = self._nearby_profile() or self._active_profile_id
+            nearby_profile_id = self._nearby_profile()
+            profile_id = nearby_profile_id or self._active_profile_id
             profile = self._profile_snapshot(profile_id)
             stop_event = self._session_stop = asyncio.Event()
             self._session_done.clear()
             client = None
             delay = 3
 
-            async def save(measurement: dict[str, Any], selected_profile: str = profile_id) -> None:
-                await self._async_measurement(measurement, selected_profile)
+            async def save(
+                measurement: dict[str, Any],
+                selected_profile: str = profile_id,
+                verified: bool = nearby_profile_id is not None,
+            ) -> None:
+                await self._async_measurement(measurement, selected_profile, verified=verified)
 
             try:
                 client = await establish_connection(

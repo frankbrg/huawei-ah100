@@ -1262,3 +1262,170 @@ async def test_start_and_stop_manage_the_beacon_listener(coordinator):
         start.assert_called_once_with()
         await scale.async_stop()
         stop.assert_called_once_with()
+
+
+def make_checked_entry():
+    return make_entry(
+        profiles={
+            "alice": {**PROFILE, "legacy_profile": True, "initial_weight_kg": 70.0},
+            "bob": {**PROFILE, "initial_weight_kg": 90.0},
+        },
+        options={"weight_plausibility_check": True},
+    )
+
+
+def capture_events(hass, *names):
+    events = []
+    unsubscribes = [
+        hass.bus.async_listen(f"huawei_ah100_{name}", lambda event: events.append(event))
+        for name in names
+    ]
+    return events, unsubscribes
+
+
+async def test_weight_check_is_off_by_default(coordinator):
+    await coordinator._async_measurement({**MEASUREMENT, "weight_kg": 150.0}, "alice")
+
+    assert coordinator.profile_data("alice")["weight_kg"] == 150.0
+
+
+async def test_weight_check_moves_mismatch_to_the_only_fitting_profile_without_body_fat(
+    coordinator,
+):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+    events, unsubscribes = capture_events(coordinator.hass, "measurement_saved")
+    try:
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 88.0, "fat_raw_tenths": 200}, "alice"
+        )
+        await coordinator.hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert scale.profile_data("alice") is None
+    stored = scale.profile_data("bob")
+    assert stored["weight_kg"] == 88.0
+    assert stored["fat_percent"] is None
+    assert "fat_raw_tenths" not in stored
+    assert stored["impedance_ohm"] == 450
+    assert stored["redirected_from"] == "alice"
+    assert [(event.data["profile_id"], event.data["redirected_from"]) for event in events] == [
+        ("bob", "alice")
+    ]
+
+
+async def test_weight_check_rejects_a_weighing_that_fits_no_profile(coordinator):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+    events, unsubscribes = capture_events(
+        coordinator.hass, "measurement_rejected", "measurement_saved"
+    )
+    try:
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 50.0}, "alice")
+        await coordinator.hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert scale.profile_data("alice") is None
+    assert scale.profile_data("bob") is None
+    assert [event.event_type for event in events] == ["huawei_ah100_measurement_rejected"]
+    assert events[0].data == {
+        "entry_id": scale.entry.entry_id,
+        "profile_id": "alice",
+        "reason": "weight_mismatch",
+        "weight_kg": 50.0,
+        "reference_weight_kg": 70.0,
+        "impedance_ohm": 450,
+    }
+
+
+@pytest.mark.parametrize(
+    ("verified", "expected_profile"),
+    [
+        pytest.param(False, None, id="selector_5_percent"),
+        pytest.param(True, "alice", id="verified"),
+    ],
+)
+async def test_weight_check_tolerance_depends_on_how_the_profile_was_chosen(
+    coordinator, verified, expected_profile
+):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+    try:
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 70.0}, "alice")
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 75.6}, "alice", verified=verified
+        )
+    finally:
+        await scale.async_stop()
+
+    assert scale.profile_data("alice")["weight_kg"] == (75.6 if expected_profile else 70.0)
+
+
+async def test_weight_check_skips_profiles_without_a_recent_weighing(coordinator):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+    try:
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 70.0}, "alice")
+        with patch(
+            "custom_components.huawei_ah100.coordinator.dt_util.utcnow",
+            return_value=datetime.now(ZoneInfo("UTC")) + timedelta(days=31),
+        ):
+            await scale._async_measurement({**MEASUREMENT, "weight_kg": 60.0}, "alice")
+    finally:
+        await scale.async_stop()
+
+    assert scale.profile_data("alice")["weight_kg"] == 60.0
+
+
+@pytest.mark.parametrize(
+    ("nearby", "weight", "expected_profile"),
+    [
+        pytest.param("bob", 72.0, "bob", id="proximity_allows_10_percent"),
+        pytest.param(None, 72.0, None, id="selector_allows_5_percent"),
+    ],
+)
+async def test_session_save_passes_proximity_as_verified(
+    coordinator, nearby, weight, expected_profile
+):
+    entry = make_entry(
+        profiles={
+            "alice": {**PROFILE, "legacy_profile": True, "initial_weight_kg": 100.0},
+            "bob": {**PROFILE, "initial_weight_kg": 66.0, "phone_beacon_uuids": [BEACON_UUID]},
+        },
+        options={"proximity_profile_selection": True, "weight_plausibility_check": True},
+    )
+    scale = HuaweiScaleCoordinator(coordinator.hass, entry)
+    scale._readings = {
+        "alice": {**MEASUREMENT, "weight_kg": 100.0, "received_at": dt_now_iso()},
+        "bob": {**MEASUREMENT, "weight_kg": 66.0, "received_at": dt_now_iso()},
+    }
+
+    async def run_session(_client, _address, _profile, save, *_args, **_kwargs):
+        await save({**MEASUREMENT, "weight_kg": weight})
+        scale._paused = True
+
+    with (
+        patch.object(scale._proximity, "nearby_profile", return_value=nearby),
+        patch.object(scale, "_get_device", return_value=Mock()),
+        patch(
+            "custom_components.huawei_ah100.coordinator.establish_connection",
+            AsyncMock(return_value=Mock(disconnect=AsyncMock())),
+        ),
+        patch("custom_components.huawei_ah100.coordinator.run_session", run_session),
+    ):
+        scale._wake.set()
+        await asyncio.wait_for(scale._async_listen(), 1)
+    await scale.async_stop()
+
+    saved = [
+        profile_id
+        for profile_id in ("alice", "bob")
+        if scale.profile_data(profile_id)["weight_kg"] == weight
+    ]
+    assert saved == ([expected_profile] if expected_profile else [])
+
+
+def dt_now_iso():
+    return datetime.now(ZoneInfo("UTC")).isoformat()

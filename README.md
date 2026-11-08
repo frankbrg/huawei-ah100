@@ -109,6 +109,16 @@ If each household member carries a phone that broadcasts an iBeacon, the scale c
 
 When the scale wakes and exactly one profile phone is at or above the threshold at that scanner, its profile is used for that weighing. Without profile confirmation, the **Active profile** selector does not change; only that session uses the detected profile. With **Require profile confirmation for each weighing**, the integration confirms the profile itself: it skips `huawei_ah100_weighing_requested` and emits `huawei_ah100_profile_confirmed` with `source: proximity`. When no phone or more than one phone is near, the scale behaves exactly as without this option. Phone UUIDs and signal readings stay in Home Assistant and are never sent to SparkyFitness.
 
+## Weight plausibility check
+
+Enable **Check that the weight fits the profile** in the scale's integration options to catch weighings stored for the wrong person. Each weighing is compared with the profile's last weighing from the past 30 days:
+
+- up to 10% difference is accepted when phone proximity or a profile confirmation chose the profile, up to 5% when it came from the **Active profile** selector;
+- before a profile's first weighing, its initial weight hint is used with 10%;
+- if the last weighing is older than 30 days, the weighing is accepted without a check, so a long break or a diet does not lose data.
+
+When a weighing does not fit, it moves to the only other profile within 5%. The scale calculated body fat with the wrong profile's height, age, and sex, so a moved weighing keeps weight and impedance but no body fat; `huawei_ah100_measurement_saved` then contains `redirected_from`. If no other profile or more than one fits, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `entry_id`, `profile_id`, `reason`, `weight_kg`, `reference_weight_kg`, and `impedance_ohm`. The check cannot tell apart people whose weights are within 5% of each other.
+
 ## SparkyFitness sync
 
 SparkyFitness sync is optional and configured separately in each profile. To enable it:

@@ -38,6 +38,7 @@ from custom_components.huawei_ah100.const import (
     CONF_SPARKY_ENABLED,
     CONF_SPARKY_URL,
     CONF_USER_ID,
+    CONF_WEIGHT_CHECK,
     DOMAIN,
     SUBENTRY_PROFILE,
 )
@@ -552,6 +553,7 @@ async def test_options_flow_only_changes_shared_connection_settings() -> None:
         CONF_USER_ID,
         CONF_ALLOW_BIND,
         CONF_REQUIRE_PROFILE_CONFIRMATION,
+        CONF_WEIGHT_CHECK,
         CONF_PROXIMITY_ENABLED,
         CONF_PROXIMITY_RSSI,
     ]
@@ -561,6 +563,7 @@ async def test_options_flow_only_changes_shared_connection_settings() -> None:
         CONF_USER_ID: 2,
         CONF_ALLOW_BIND: True,
         CONF_REQUIRE_PROFILE_CONFIRMATION: False,
+        CONF_WEIGHT_CHECK: False,
         CONF_PROXIMITY_ENABLED: False,
         CONF_PROXIMITY_RSSI: -65,
     }
@@ -577,6 +580,7 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
             CONF_USER_ID: 2.0,
             CONF_ALLOW_BIND: True,
             CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+            CONF_WEIGHT_CHECK: True,
             CONF_PROXIMITY_ENABLED: True,
             CONF_PROXIMITY_RSSI: -70.0,
         }
@@ -589,6 +593,7 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
         CONF_USER_ID: 2,
         CONF_ALLOW_BIND: True,
         CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+        CONF_WEIGHT_CHECK: True,
         CONF_PROXIMITY_ENABLED: True,
         CONF_PROXIMITY_RSSI: -70,
     }
@@ -761,6 +766,12 @@ async def test_profile_reconfigure_rejects_another_profiles_title() -> None:
 @pytest.mark.parametrize(
     ("user_input", "error_key", "error"),
     [
+        pytest.param(
+            {CONF_WEIGHT_CHECK: "yes"},
+            CONF_WEIGHT_CHECK,
+            "invalid_weight_check",
+            id="non_boolean_weight_check",
+        ),
         pytest.param(
             {CONF_PROXIMITY_ENABLED: "yes"},
             CONF_PROXIMITY_ENABLED,

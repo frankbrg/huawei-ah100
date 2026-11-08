@@ -37,6 +37,7 @@ from .const import (
     CONF_SPARKY_ENABLED,
     CONF_SPARKY_URL,
     CONF_USER_ID,
+    CONF_WEIGHT_CHECK,
     DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
     NAME,
@@ -142,6 +143,7 @@ OPTIONS_SCHEMA = probatio.Schema(
         probatio.Optional(CONF_REQUIRE_PROFILE_CONFIRMATION, default=False): selector(
             {"boolean": {}}
         ),
+        probatio.Optional(CONF_WEIGHT_CHECK, default=False): selector({"boolean": {}}),
         probatio.Optional(CONF_PROXIMITY_ENABLED, default=False): selector({"boolean": {}}),
         probatio.Optional(CONF_PROXIMITY_RSSI, default=DEFAULT_PROXIMITY_RSSI): selector(
             {
@@ -265,6 +267,8 @@ def _connection_errors(user_input: dict[str, Any]) -> dict[str, str]:
     ):
         errors[CONF_REQUIRE_PROFILE_CONFIRMATION] = "invalid_require_profile_confirmation"
 
+    if CONF_WEIGHT_CHECK in user_input and not isinstance(user_input[CONF_WEIGHT_CHECK], bool):
+        errors[CONF_WEIGHT_CHECK] = "invalid_weight_check"
     if CONF_PROXIMITY_ENABLED in user_input and not isinstance(
         user_input[CONF_PROXIMITY_ENABLED], bool
     ):
@@ -691,6 +695,7 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                         CONF_REQUIRE_PROFILE_CONFIRMATION: user_input.get(
                             CONF_REQUIRE_PROFILE_CONFIRMATION, False
                         ),
+                        CONF_WEIGHT_CHECK: user_input.get(CONF_WEIGHT_CHECK, False),
                         CONF_PROXIMITY_ENABLED: user_input.get(CONF_PROXIMITY_ENABLED, False),
                         CONF_PROXIMITY_RSSI: int(
                             user_input.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
@@ -709,6 +714,7 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                     CONF_REQUIRE_PROFILE_CONFIRMATION: suggestions.get(
                         CONF_REQUIRE_PROFILE_CONFIRMATION, False
                     ),
+                    CONF_WEIGHT_CHECK: suggestions.get(CONF_WEIGHT_CHECK, False),
                     CONF_PROXIMITY_ENABLED: suggestions.get(CONF_PROXIMITY_ENABLED, False),
                     CONF_PROXIMITY_RSSI: suggestions.get(
                         CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI

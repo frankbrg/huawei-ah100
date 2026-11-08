@@ -19,3 +19,4 @@ CONF_BEACON_UUIDS = "phone_beacon_uuids"
 CONF_PROXIMITY_ENABLED = "proximity_profile_selection"
 CONF_PROXIMITY_RSSI = "proximity_rssi_threshold"
 DEFAULT_PROXIMITY_RSSI = -65
+CONF_WEIGHT_CHECK = "weight_plausibility_check"
