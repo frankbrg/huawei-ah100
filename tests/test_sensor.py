@@ -5,9 +5,11 @@ from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceEntryType
 
 from custom_components.huawei_ah100.sensor import (
+    PHONE_SIGNAL_DESCRIPTION,
     SENSOR_DESCRIPTIONS,
     SYNC_STATUS_DESCRIPTION,
     SYNC_STATUS_OPTIONS,
+    HuaweiAH100PhoneSignalSensor,
     HuaweiAH100Sensor,
     HuaweiAH100SyncStatusSensor,
     async_setup_entry,
@@ -192,3 +194,40 @@ async def test_setup_adds_entities_to_each_profile_subentry() -> None:
         for entities, _ in batches
         for entity in entities[-1:]
     )
+
+
+async def test_phone_signal_sensor_only_for_profiles_with_a_beacon() -> None:
+    rssi = {"second": -61}
+    coordinator = _coordinator(
+        {
+            "legacy": LEGACY_PROFILE,
+            "second": {
+                **SECOND_PROFILE,
+                "phone_beacon_uuid": "e2c56db5-dffb-48d2-b060-d0f5a71096e0",
+            },
+        }
+    )
+    coordinator.phone_rssi = rssi.get
+    batches = []
+
+    def add_entities(entities, config_subentry_id=None):
+        batches.append((list(entities), config_subentry_id))
+
+    await async_setup_entry(None, SimpleNamespace(runtime_data=coordinator), add_entities)
+
+    phone_sensors = [
+        entity
+        for entities, _ in batches
+        for entity in entities
+        if isinstance(entity, HuaweiAH100PhoneSignalSensor)
+    ]
+    assert [sensor.profile_id for sensor in phone_sensors] == ["second"]
+    sensor = phone_sensors[0]
+    assert sensor.unique_id == f"{ADDRESS}_second_phone_rssi"
+    assert sensor.native_value == -61
+    assert sensor.should_poll
+    assert sensor.device_info["identifiers"] == {("huawei_ah100", f"{ADDRESS}_second")}
+    assert PHONE_SIGNAL_DESCRIPTION.entity_category == EntityCategory.DIAGNOSTIC
+    assert PHONE_SIGNAL_DESCRIPTION.entity_registry_enabled_default is False
+    rssi.clear()
+    assert sensor.native_value is None

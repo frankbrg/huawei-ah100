@@ -97,6 +97,18 @@ Une automatisation confirme un profil avec `huawei_ah100.claim_weighing`, en tra
 
 Après une confirmation, l’intégration émet `huawei_ah100_profile_confirmed`. Elle émet `huawei_ah100_weighing_cancelled` si une demande se termine sans mesure ; cet événement contient un `reason`. Quand une mesure est enregistrée durablement en local, `huawei_ah100_measurement_saved` est émis avec son `measurement_id` ; il peut déclencher un retour immédiat, par exemple un voyant vert. `huawei_ah100_measurement_completed` est émis pour cette même mesure durable après la réussite de SparkyFitness ou si la synchronisation est désactivée ; son `sync_status` vaut `synced` ou `disabled`. Utilisez l’événement terminé pour envoyer une notification finale du résultat à la personne concernée. Les champs d’événement et le cycle de vie des demandes sont détaillés dans les [notes de protocole](protocol.md).
 
+## Choix automatique du profil selon la proximité du téléphone
+
+Si chaque membre du foyer porte un téléphone qui diffuse un iBeacon, la balance peut choisir le profil seule. L’application Home Assistant Companion pour Android le permet avec son capteur **Émetteur BLE** ; toute autre source iBeacon convient aussi. L’adresse Bluetooth du téléphone peut changer, c’est pourquoi l’intégration identifie les téléphones uniquement par leur UUID iBeacon.
+
+1. Sur chaque téléphone, activez l’émetteur iBeacon et notez son UUID.
+2. Modifiez chaque profil et saisissez cet UUID dans **UUID iBeacon du téléphone**. Un UUID ne peut appartenir qu’à un seul profil.
+3. Activez le capteur de diagnostic **Signal du téléphone** du profil, désactivé par défaut. Il indique la puissance du signal du téléphone au scanner Bluetooth qui capte le mieux la balance, par exemple un proxy Bluetooth ESPHome dans la salle de bain. Les mesures de plus de 10 secondes sont ignorées.
+4. Placez-vous sur la balance avec le téléphone là où vous le portez d’habitude et notez la valeur. Notez ensuite la valeur depuis l’endroit où se trouvent habituellement les autres personnes, par exemple la pièce voisine.
+5. Dans les options de l’intégration de la balance, activez **Choisir le profil selon la proximité du téléphone** et réglez **Seuil de signal pour la proximité du téléphone** entre ces deux valeurs. La valeur par défaut est -65 dBm.
+
+Au réveil de la balance, si exactement un téléphone de profil atteint au moins le seuil à ce scanner, son profil est utilisé pour cette pesée. Sans confirmation du profil, le sélecteur **Profil actif** ne change pas ; seule cette session utilise le profil détecté. Avec **Confirmer le profil à chaque pesée**, l’intégration confirme elle-même le profil : elle n’émet pas `huawei_ah100_weighing_requested` et émet `huawei_ah100_profile_confirmed` avec `source: proximity`. Si aucun téléphone ou plusieurs téléphones sont proches, la balance se comporte exactement comme sans cette option. Les UUID des téléphones et les mesures de signal restent dans Home Assistant et ne sont jamais envoyés à SparkyFitness.
+
 ## Synchronisation SparkyFitness
 
 La synchronisation SparkyFitness est facultative et se configure séparément dans chaque profil :

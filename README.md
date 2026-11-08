@@ -97,6 +97,18 @@ An automation confirms a profile with `huawei_ah100.claim_weighing`, passing the
 
 The integration emits `huawei_ah100_profile_confirmed` after accepting a claim and `huawei_ah100_weighing_cancelled` when a request ends without a measurement; the latter includes a `reason`. When a measurement is durably saved locally, `huawei_ah100_measurement_saved` fires with its `measurement_id`, which can drive an immediate local acknowledgement such as a green blink. `huawei_ah100_measurement_completed` fires for that same durable measurement after SparkyFitness succeeds or when sync is disabled, with `sync_status` set to `synced` or `disabled`. Use the completed event for a final result notification to the owner. For event fields and the request lifecycle, see [Protocol notes](docs/protocol.md).
 
+## Automatic profile selection by phone proximity
+
+If each household member carries a phone that broadcasts an iBeacon, the scale can pick the profile on its own. The Home Assistant Companion app for Android can do this with its **BLE transmitter** sensor; any other iBeacon source works as well. The phone's Bluetooth address may change, so the integration identifies phones by their iBeacon UUID only.
+
+1. On each phone, turn on the iBeacon transmitter and note its UUID.
+2. Edit each profile and enter that UUID in **Phone iBeacon UUID**. Each UUID can belong to only one profile.
+3. Enable the profile's **Phone signal** diagnostic sensor. It is disabled by default. It shows the phone's signal strength at the Bluetooth scanner that receives the scale best, for example an ESPHome Bluetooth proxy in the bathroom. Readings older than 10 seconds are ignored.
+4. Stand at the scale with the phone where you usually carry it, and note the value. Then note the value from where other people usually are, for example the next room.
+5. In the scale's integration options, enable **Select profile by phone proximity** and set **Phone proximity signal threshold** between those two values. The default is -65 dBm.
+
+When the scale wakes and exactly one profile phone is at or above the threshold at that scanner, its profile is used for that weighing. Without profile confirmation, the **Active profile** selector does not change; only that session uses the detected profile. With **Require profile confirmation for each weighing**, the integration confirms the profile itself: it skips `huawei_ah100_weighing_requested` and emits `huawei_ah100_profile_confirmed` with `source: proximity`. When no phone or more than one phone is near, the scale behaves exactly as without this option. Phone UUIDs and signal readings stay in Home Assistant and are never sent to SparkyFitness.
+
 ## SparkyFitness sync
 
 SparkyFitness sync is optional and configured separately in each profile. To enable it:

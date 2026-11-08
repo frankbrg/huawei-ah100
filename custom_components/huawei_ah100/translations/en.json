@@ -109,7 +109,9 @@
       "invalid_allow_bind": "Choose whether pairing is allowed.",
       "invalid_require_profile_confirmation": "Choose whether profile confirmation is required.",
       "invalid_user_id": "The scale user ID must be from 0 to 255.",
-      "user_id_not_integer": "The user ID must be a whole number."
+      "user_id_not_integer": "The user ID must be a whole number.",
+      "invalid_proximity_enabled": "Choose whether phone proximity selects the profile.",
+      "invalid_proximity_rssi": "The threshold must be a whole number from -100 to -30 dBm."
     },
     "step": {
       "init": {
@@ -118,12 +120,16 @@
         "data": {
           "user_id": "Scale user ID",
           "allow_bind": "Allow pairing or binding",
-          "require_profile_confirmation": "Require profile confirmation for each weighing"
+          "require_profile_confirmation": "Require profile confirmation for each weighing",
+          "proximity_profile_selection": "Select profile by phone proximity",
+          "proximity_rssi_threshold": "Phone proximity signal threshold"
         },
         "data_description": {
           "user_id": "Advanced shared wire-level scale slot for every profile. Leave the default 1 unless you know a different slot is required.",
           "allow_bind": "Enable only when this adapter is not authorized by the scale and binding is needed. Binding can change the existing association; leave off if already authorized.",
-          "require_profile_confirmation": "When enabled, a scale wake asks Home Assistant automations to confirm which profile is weighing."
+          "require_profile_confirmation": "When enabled, a scale wake asks Home Assistant automations to confirm which profile is weighing.",
+          "proximity_profile_selection": "When the scale wakes and exactly one profile phone is near the Bluetooth scanner that sees the scale best, that profile is used. Otherwise the active profile or the confirmation request applies as before.",
+          "proximity_rssi_threshold": "Minimum phone signal strength at the scale’s scanner. Use the profile’s Phone signal diagnostic sensor to choose a value; closer is stronger, for example -55 dBm instead of -75 dBm."
         }
       }
     }
@@ -150,6 +156,9 @@
           "synced": "Synced",
           "error": "Error"
         }
+      },
+      "phone_signal": {
+        "name": "Phone signal"
       }
     },
     "select": {
@@ -191,7 +200,8 @@
             "person_entity_id": "Home Assistant person (optional)",
             "sparky_enabled": "Send new measurements to SparkyFitness",
             "sparky_url": "SparkyFitness server URL",
-            "sparky_api_key": "SparkyFitness API key"
+            "sparky_api_key": "SparkyFitness API key",
+            "phone_beacon_uuid": "Phone iBeacon UUID (optional)"
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
@@ -202,7 +212,8 @@
             "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
-            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account."
+            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account.",
+            "phone_beacon_uuid": "UUID broadcast by this person’s phone, for example by the Home Assistant Companion app’s BLE transmitter. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         },
         "reconfigure": {
@@ -217,7 +228,8 @@
             "person_entity_id": "Home Assistant person (optional)",
             "sparky_enabled": "Send new measurements to SparkyFitness",
             "sparky_url": "SparkyFitness server URL",
-            "sparky_api_key": "SparkyFitness API key"
+            "sparky_api_key": "SparkyFitness API key",
+            "phone_beacon_uuid": "Phone iBeacon UUID (optional)"
           },
           "data_description": {
             "name": "Choose a unique name for this person’s scale profile. Renaming it keeps the profile’s sensor history.",
@@ -228,7 +240,8 @@
             "person_entity_id": "Optional Home Assistant person entity shown as read-only metadata. It does not select the active profile or authenticate a person.",
             "sparky_enabled": "When enabled, new live weight and available body-fat readings are sent to the account below. The initial hint and saved history are not sent.",
             "sparky_url": "Enter the server root URL only, without an API path.",
-            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it."
+            "sparky_api_key": "Create a key in this SparkyFitness account with the health_data_write permission. Use the key belonging to this profile’s account. Leave blank to keep the saved key; Home Assistant does not prefill it.",
+            "phone_beacon_uuid": "UUID broadcast by this person’s phone, for example by the Home Assistant Companion app’s BLE transmitter. Used only when automatic profile selection by phone proximity is enabled in the scale options."
           }
         }
       },
@@ -246,7 +259,9 @@
         "invalid_sparky_url": "Enter a valid SparkyFitness server root URL.",
         "invalid_weight": "Initial weight must be greater than 0 and at most 300 kg.",
         "missing_sparky_api_key": "Enter an API key for the selected SparkyFitness account.",
-        "duplicate_profile_name": "A profile with this name already exists."
+        "duplicate_profile_name": "A profile with this name already exists.",
+        "invalid_beacon_uuid": "Enter a valid UUID, for example e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Another profile already uses this phone UUID."
       }
     }
   },

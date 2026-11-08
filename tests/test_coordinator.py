@@ -1138,3 +1138,117 @@ async def test_confirmation_ble_path_requests_only_on_wake_and_routes_only_to_cl
             assert all(event.data["profile_id"] == "bob" for event in events)
         finally:
             await confirmed.async_stop()
+
+
+BEACON_UUID = "e2c56db5-dffb-48d2-b060-d0f5a71096e0"
+
+
+def make_beacon_entry(options):
+    return make_entry(
+        profiles={
+            "alice": {**PROFILE, "legacy_profile": True},
+            "bob": {**PROFILE, "initial_weight_kg": 65.0, "phone_beacon_uuid": BEACON_UUID},
+        },
+        options=options,
+    )
+
+
+async def test_profiles_without_beacons_have_no_proximity_tracker(coordinator):
+    assert coordinator._proximity is None
+    assert coordinator.phone_rssi("alice") is None
+    assert coordinator._nearby_profile() is None
+
+
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        pytest.param({}, None, id="disabled"),
+        pytest.param({"proximity_profile_selection": True}, "bob", id="enabled_default_threshold"),
+        pytest.param(
+            {"proximity_profile_selection": True, "proximity_rssi_threshold": -50},
+            None,
+            id="enabled_below_threshold",
+        ),
+    ],
+)
+async def test_nearby_profile_respects_toggle_and_threshold(coordinator, options, expected):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_beacon_entry(options))
+    with patch.object(scale._proximity, "rssi_by_profile", return_value={"bob": -60}):
+        assert scale.phone_rssi("bob") == -60
+        assert scale._nearby_profile() == expected
+
+
+async def test_confirmation_mode_claims_nearby_profile_without_request_event(coordinator):
+    scale = HuaweiScaleCoordinator(
+        coordinator.hass,
+        make_beacon_entry(
+            {"require_profile_confirmation": True, "proximity_profile_selection": True}
+        ),
+    )
+    requested = []
+    unsubscribe = coordinator.hass.bus.async_listen(
+        "huawei_ah100_weighing_requested", lambda event: requested.append(event)
+    )
+    try:
+        with patch.object(scale._proximity, "nearby_profile", return_value="bob"):
+            selected = await scale._resolve_profile(1)
+        await coordinator.hass.async_block_till_done()
+        assert selected.profile["initial_weight_kg"] == 65.0
+        assert scale.active_profile_id == "bob"
+        assert requested == []
+    finally:
+        unsubscribe()
+        await scale.async_stop()
+
+
+@pytest.mark.parametrize(
+    ("nearby", "expected_weight"),
+    [pytest.param("bob", 65.0, id="nearby_phone"), pytest.param(None, 80.0, id="no_phone")],
+)
+async def test_manual_mode_session_uses_nearby_profile_without_changing_selection(
+    coordinator, nearby, expected_weight
+):
+    entry = make_beacon_entry({"proximity_profile_selection": True})
+    scale = HuaweiScaleCoordinator(coordinator.hass, entry)
+    sessions = []
+
+    async def run_session(_client, _address, profile, *_args, **_kwargs):
+        sessions.append(profile)
+        scale._paused = True
+
+    client = Mock(disconnect=AsyncMock())
+    with (
+        patch.object(scale._proximity, "nearby_profile", return_value=nearby),
+        patch.object(scale, "_get_device", return_value=Mock()),
+        patch(
+            "custom_components.huawei_ah100.coordinator.establish_connection",
+            AsyncMock(return_value=client),
+        ),
+        patch("custom_components.huawei_ah100.coordinator.run_session", run_session),
+    ):
+        scale._wake.set()
+        await asyncio.wait_for(scale._async_listen(), 1)
+
+    assert [profile["initial_weight_kg"] for profile in sessions] == [expected_weight]
+    assert scale.active_profile_id == "alice"
+    assert "active_profile_id" not in entry.options
+    await scale.async_stop()
+
+
+async def test_start_and_stop_manage_the_beacon_listener(coordinator):
+    scale = HuaweiScaleCoordinator(coordinator.hass, make_beacon_entry({}))
+    with (
+        patch.object(scale._proximity, "async_start") as start,
+        patch.object(scale._proximity, "async_stop") as stop,
+        patch(
+            "custom_components.huawei_ah100.coordinator.bluetooth"
+            ".async_register_advertisement_callback",
+            return_value=Mock(),
+        ),
+        patch.object(scale, "_get_device", return_value=None),
+        patch.object(scale, "_async_listen", new=AsyncMock()),
+    ):
+        await scale.async_start()
+        start.assert_called_once_with()
+        await scale.async_stop()
+        stop.assert_called_once_with()

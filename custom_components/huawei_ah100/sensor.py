@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -11,16 +11,23 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfMass
+from homeassistant.const import (
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    EntityCategory,
+    UnitOfMass,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_LEGACY_PROFILE, CONF_PERSON, DOMAIN
+from .const import CONF_BEACON_UUID, CONF_LEGACY_PROFILE, CONF_PERSON, DOMAIN
 from .coordinator import HuaweiScaleCoordinator
 
 _OHM = "Ω"
+# Only the phone signal sensor polls; the other sensors are pushed by the coordinator.
+SCAN_INTERVAL = timedelta(seconds=5)
 SYNC_STATUS_OPTIONS = ("disabled", "pending", "synced", "error")
 
 SENSOR_DESCRIPTIONS = (
@@ -61,6 +68,15 @@ SYNC_STATUS_DESCRIPTION = SensorEntityDescription(
     entity_category=EntityCategory.DIAGNOSTIC,
 )
 
+PHONE_SIGNAL_DESCRIPTION = SensorEntityDescription(
+    key="phone_rssi",
+    translation_key="phone_signal",
+    device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+    native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    entity_category=EntityCategory.DIAGNOSTIC,
+    entity_registry_enabled_default=False,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -74,6 +90,8 @@ async def async_setup_entry(
             for description in SENSOR_DESCRIPTIONS
         ]
         entities.append(HuaweiAH100SyncStatusSensor(coordinator, profile_id, profile))
+        if profile.get(CONF_BEACON_UUID):
+            entities.append(HuaweiAH100PhoneSignalSensor(coordinator, profile_id, profile))
         async_add_entities(entities, config_subentry_id=profile_id)
 
 
@@ -178,6 +196,32 @@ class HuaweiAH100SyncStatusSensor(CoordinatorEntity[HuaweiScaleCoordinator], Sen
     @property
     def native_value(self) -> str:
         return self.coordinator.sync_status(self.profile_id)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _profile_device_info(self.coordinator, self.profile_id, self.profile)
+
+
+class HuaweiAH100PhoneSignalSensor(SensorEntity):
+    """Expose the profile phone's signal at the scale to help tune the proximity threshold."""
+
+    entity_description = PHONE_SIGNAL_DESCRIPTION
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: HuaweiScaleCoordinator,
+        profile_id: str,
+        profile: Mapping[str, Any],
+    ) -> None:
+        self.coordinator = coordinator
+        self.profile_id = profile_id
+        self.profile = profile
+        self._attr_unique_id = f"{coordinator.address}_{profile_id}_phone_rssi"
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.phone_rssi(self.profile_id)
 
     @property
     def device_info(self) -> DeviceInfo:

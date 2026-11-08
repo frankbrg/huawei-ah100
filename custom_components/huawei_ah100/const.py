@@ -15,3 +15,7 @@ CONF_PERSON = "person_entity_id"
 CONF_SPARKY_ENABLED = "sparky_enabled"
 CONF_SPARKY_URL = "sparky_url"
 CONF_SPARKY_API_KEY = "sparky_api_key"
+CONF_BEACON_UUID = "phone_beacon_uuid"
+CONF_PROXIMITY_ENABLED = "proximity_profile_selection"
+CONF_PROXIMITY_RSSI = "proximity_rssi_threshold"
+DEFAULT_PROXIMITY_RSSI = -65

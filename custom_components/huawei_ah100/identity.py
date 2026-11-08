@@ -47,8 +47,13 @@ class IdentityRequests:
         self._request: WeighingRequest | None = None
 
     @callback
-    def request(self, wake_id: int) -> asyncio.Future[str | None]:
-        """Emit a request and return the future resolved by a claim or cancellation."""
+    def request(
+        self, wake_id: int, nearby_profile_id: str | None = None
+    ) -> asyncio.Future[str | None]:
+        """Emit a request and return the future resolved by a claim or cancellation.
+
+        A profile detected by phone proximity is confirmed at once without asking automations.
+        """
         self.cancel("superseded")
         request_id = uuid4().hex
         future = self._hass.loop.create_future()
@@ -60,6 +65,9 @@ class IdentityRequests:
             future,
             timer,
         )
+        if nearby_profile_id in self._profiles:
+            self._confirm(self._request, nearby_profile_id, source="proximity")
+            return future
         self._hass.bus.async_fire(
             f"{DOMAIN}_weighing_requested",
             {
@@ -113,15 +121,22 @@ class IdentityRequests:
                 or (context_user_id is not None and context_user_id != user_id)
             ):
                 raise ServiceValidationError("The selected profile is unavailable to this user")
+        self._confirm(request, profile_id)
+
+    def _confirm(
+        self, request: WeighingRequest, profile_id: str, *, source: str | None = None
+    ) -> None:
         request.profile_id = profile_id
         request.timer.cancel()
         self._on_claim(profile_id)
         request.future.set_result(profile_id)
         payload = self._profile_payload(profile_id)
         payload.pop("name")
+        if source is not None:
+            payload["source"] = source
         self._hass.bus.async_fire(
             f"{DOMAIN}_profile_confirmed",
-            {"entry_id": self._entry_id, "request_id": request_id, **payload},
+            {"entry_id": self._entry_id, "request_id": request.request_id, **payload},
         )
 
     def cancel(self, reason: str, wake_id: int | None = None) -> None:

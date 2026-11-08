@@ -109,7 +109,9 @@
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
       "invalid_require_profile_confirmation": "Choisissez si le profil doit être confirmé.",
       "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
-      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
+      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier.",
+      "invalid_proximity_enabled": "Indiquez si la proximité du téléphone choisit le profil.",
+      "invalid_proximity_rssi": "Le seuil doit être un nombre entier entre -100 et -30 dBm."
     },
     "step": {
       "init": {
@@ -118,12 +120,16 @@
         "data": {
           "user_id": "Identifiant utilisateur de la balance",
           "allow_bind": "Autoriser l’association",
-          "require_profile_confirmation": "Confirmer le profil à chaque pesée"
+          "require_profile_confirmation": "Confirmer le profil à chaque pesée",
+          "proximity_profile_selection": "Choisir le profil selon la proximité du téléphone",
+          "proximity_rssi_threshold": "Seuil de signal pour la proximité du téléphone"
         },
         "data_description": {
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
-          "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse."
+          "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse.",
+          "proximity_profile_selection": "Au réveil de la balance, si exactement un téléphone de profil est proche du scanner Bluetooth qui capte le mieux la balance, ce profil est utilisé. Sinon, le profil actif ou la demande de confirmation s’applique comme avant.",
+          "proximity_rssi_threshold": "Puissance de signal minimale du téléphone au scanner de la balance. Aidez-vous du capteur de diagnostic Signal du téléphone du profil ; plus proche signifie plus fort, par exemple -55 dBm au lieu de -75 dBm."
         }
       }
     }
@@ -150,6 +156,9 @@
           "synced": "Synchronisée",
           "error": "Erreur"
         }
+      },
+      "phone_signal": {
+        "name": "Signal du téléphone"
       }
     },
     "select": {
@@ -191,7 +200,8 @@
             "person_entity_id": "Personne Home Assistant (facultatif)",
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
-            "sparky_api_key": "Clé API SparkyFitness"
+            "sparky_api_key": "Clé API SparkyFitness",
+            "phone_beacon_uuid": "UUID iBeacon du téléphone (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
@@ -202,7 +212,8 @@
             "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
-            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil."
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
+            "phone_beacon_uuid": "UUID diffusé par le téléphone de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Utilisé uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         },
         "reconfigure": {
@@ -217,7 +228,8 @@
             "person_entity_id": "Personne Home Assistant (facultatif)",
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
-            "sparky_api_key": "Clé API SparkyFitness"
+            "sparky_api_key": "Clé API SparkyFitness",
+            "phone_beacon_uuid": "UUID iBeacon du téléphone (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
@@ -228,7 +240,8 @@
             "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
-            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas."
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas.",
+            "phone_beacon_uuid": "UUID diffusé par le téléphone de cette personne, par exemple par l’émetteur BLE de l’application Home Assistant Companion. Utilisé uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         }
       },
@@ -246,7 +259,9 @@
         "invalid_sparky_url": "Saisissez une URL racine valide pour le serveur SparkyFitness.",
         "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
         "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
-        "duplicate_profile_name": "Un profil portant ce nom existe déjà."
+        "duplicate_profile_name": "Un profil portant ce nom existe déjà.",
+        "invalid_beacon_uuid": "Saisissez un UUID valide, par exemple e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Un autre profil utilise déjà cet UUID de téléphone."
       }
     }
   },

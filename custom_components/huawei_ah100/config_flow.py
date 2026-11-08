@@ -23,21 +23,26 @@ from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_ALLOW_BIND,
+    CONF_BEACON_UUID,
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_PROXIMITY_ENABLED,
+    CONF_PROXIMITY_RSSI,
     CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SEX,
     CONF_SPARKY_API_KEY,
     CONF_SPARKY_ENABLED,
     CONF_SPARKY_URL,
     CONF_USER_ID,
+    DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
     NAME,
     SUBENTRY_PROFILE,
 )
+from .proximity import normalize_beacon_uuid
 from .sparky import normalize_base_url
 
 if TYPE_CHECKING:
@@ -79,6 +84,7 @@ def _profile_schema(
     *,
     include_address: bool = False,
     include_connection: bool = False,
+    include_beacon: bool = False,
     name_default: str = DEFAULT_PROFILE_NAME,
 ) -> probatio.Schema:
     fields: dict[Any, Any] = {}
@@ -111,12 +117,14 @@ def _profile_schema(
             probatio.Optional(CONF_SPARKY_API_KEY): selector({"text": {"type": "password"}}),
         }
     )
+    if include_beacon:
+        fields[probatio.Optional(CONF_BEACON_UUID)] = selector({"text": {"type": "text"}})
     if include_connection:
         fields.update(_connection_fields())
     return probatio.Schema(fields)
 
 
-PROFILE_SCHEMA = _profile_schema()
+PROFILE_SCHEMA = _profile_schema(include_beacon=True)
 USER_SCHEMA = _profile_schema(include_address=True, include_connection=True)
 BLUETOOTH_SCHEMA = _profile_schema(include_connection=True)
 OPTIONS_SCHEMA = probatio.Schema(
@@ -124,6 +132,18 @@ OPTIONS_SCHEMA = probatio.Schema(
         **_connection_fields(),
         probatio.Optional(CONF_REQUIRE_PROFILE_CONFIRMATION, default=False): selector(
             {"boolean": {}}
+        ),
+        probatio.Optional(CONF_PROXIMITY_ENABLED, default=False): selector({"boolean": {}}),
+        probatio.Optional(CONF_PROXIMITY_RSSI, default=DEFAULT_PROXIMITY_RSSI): selector(
+            {
+                "number": {
+                    "min": -100,
+                    "max": -30,
+                    "step": 1,
+                    "mode": "slider",
+                    "unit_of_measurement": "dBm",
+                }
+            }
         ),
     }
 )
@@ -191,6 +211,10 @@ def _profile_errors(
     if person is not None and _person_entity_id(person) is None:
         errors[CONF_PERSON] = "invalid_person"
 
+    beacon_uuid = user_input.get(CONF_BEACON_UUID)
+    if beacon_uuid not in (None, "") and normalize_beacon_uuid(beacon_uuid) is None:
+        errors[CONF_BEACON_UUID] = "invalid_beacon_uuid"
+
     sparky_enabled = user_input.get(CONF_SPARKY_ENABLED, False)
     if not isinstance(sparky_enabled, bool):
         errors[CONF_SPARKY_ENABLED] = "invalid_sparky_enabled"
@@ -232,6 +256,20 @@ def _connection_errors(user_input: dict[str, Any]) -> dict[str, str]:
         user_input[CONF_REQUIRE_PROFILE_CONFIRMATION], bool
     ):
         errors[CONF_REQUIRE_PROFILE_CONFIRMATION] = "invalid_require_profile_confirmation"
+
+    if CONF_PROXIMITY_ENABLED in user_input and not isinstance(
+        user_input[CONF_PROXIMITY_ENABLED], bool
+    ):
+        errors[CONF_PROXIMITY_ENABLED] = "invalid_proximity_enabled"
+    rssi = user_input.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+    if (
+        isinstance(rssi, bool)
+        or not isinstance(rssi, (int, float))
+        or not math.isfinite(rssi)
+        or not -100 <= rssi <= -30
+        or not float(rssi).is_integer()
+    ):
+        errors[CONF_PROXIMITY_RSSI] = "invalid_proximity_rssi"
     return errors
 
 
@@ -275,6 +313,24 @@ def _profile_name_errors(
     return {}
 
 
+def _beacon_errors(
+    user_input: Mapping[str, Any],
+    subentries: Mapping[str, Any],
+    exclude_subentry_id: str | None = None,
+) -> dict[str, str]:
+    beacon_uuid = normalize_beacon_uuid(user_input.get(CONF_BEACON_UUID))
+    if beacon_uuid is None:
+        return {}
+    for subentry in subentries.values():
+        if (
+            subentry.subentry_type == SUBENTRY_PROFILE
+            and subentry.subentry_id != exclude_subentry_id
+            and subentry.data.get(CONF_BEACON_UUID) == beacon_uuid
+        ):
+            return {CONF_BEACON_UUID: "duplicate_beacon_uuid"}
+    return {}
+
+
 def _initial_errors(user_input: dict[str, Any]) -> dict[str, str]:
     errors = _profile_errors(user_input)
     errors.update(_connection_errors(user_input))
@@ -299,6 +355,8 @@ def _profile_data(
     }
     if person := _person_entity_id(user_input.get(CONF_PERSON)):
         data[CONF_PERSON] = person
+    if beacon_uuid := normalize_beacon_uuid(user_input.get(CONF_BEACON_UUID)):
+        data[CONF_BEACON_UUID] = beacon_uuid
 
     sparky_url = user_input.get(CONF_SPARKY_URL) or (existing_data or {}).get(CONF_SPARKY_URL)
     if isinstance(sparky_url, str) and sparky_url.strip():
@@ -472,6 +530,7 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                 errors[CONF_NAME] = "invalid_name"
             else:
                 errors.update(_profile_name_errors(name, entry.subentries))
+            errors.update(_beacon_errors(user_input, entry.subentries))
 
             if not errors:
                 return self.async_create_entry(
@@ -485,7 +544,7 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _profile_schema(name_default=name_default), suggestions
+                _profile_schema(include_beacon=True, name_default=name_default), suggestions
             ),
             errors=errors,
         )
@@ -510,6 +569,11 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                         exclude_subentry_id=subentry.subentry_id,
                     )
                 )
+            errors.update(
+                _beacon_errors(
+                    user_input, entry.subentries, exclude_subentry_id=subentry.subentry_id
+                )
+            )
 
             if not errors:
                 return self.async_update_and_abort(
@@ -550,6 +614,10 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                         CONF_REQUIRE_PROFILE_CONFIRMATION: user_input.get(
                             CONF_REQUIRE_PROFILE_CONFIRMATION, False
                         ),
+                        CONF_PROXIMITY_ENABLED: user_input.get(CONF_PROXIMITY_ENABLED, False),
+                        CONF_PROXIMITY_RSSI: int(
+                            user_input.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+                        ),
                     },
                 )
 
@@ -563,6 +631,10 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                     CONF_ALLOW_BIND: suggestions.get(CONF_ALLOW_BIND, False),
                     CONF_REQUIRE_PROFILE_CONFIRMATION: suggestions.get(
                         CONF_REQUIRE_PROFILE_CONFIRMATION, False
+                    ),
+                    CONF_PROXIMITY_ENABLED: suggestions.get(CONF_PROXIMITY_ENABLED, False),
+                    CONF_PROXIMITY_RSSI: suggestions.get(
+                        CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI
                     ),
                 },
             ),

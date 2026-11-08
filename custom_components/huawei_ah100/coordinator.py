@@ -26,17 +26,22 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
+    CONF_BEACON_UUID,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_PROXIMITY_ENABLED,
+    CONF_PROXIMITY_RSSI,
     CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SPARKY_ENABLED,
     CONF_USER_ID,
+    DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
     NAME,
     PROFILE_KEYS,
     SUBENTRY_PROFILE,
 )
 from .identity import IdentityRequests
+from .proximity import PhoneProximity
 from .session import AuthenticationError, SessionProfile, run_session
 from .sparky import SparkyClient, destination_from_profile, measurement_day
 from .storage import MeasurementStore
@@ -100,6 +105,12 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._identity = IdentityRequests(
             hass, entry.entry_id, self._profiles, self._profile_claimed
         )
+        beacons = {
+            profile[CONF_BEACON_UUID]: profile_id
+            for profile_id, profile in self._profiles.items()
+            if profile.get(CONF_BEACON_UUID)
+        }
+        self._proximity = PhoneProximity(hass, self.address, beacons) if beacons else None
         self.data = {}
 
     @property
@@ -116,6 +127,22 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         """Return the latest stored measurement for a profile, if available."""
         reading = self._readings.get(profile_id)
         return dict(reading) if reading is not None else None
+
+    def phone_rssi(self, profile_id: str) -> int | None:
+        """Return the profile phone's recent RSSI at the scanner closest to the scale."""
+        if self._proximity is None:
+            return None
+        return self._proximity.rssi_by_profile().get(profile_id)
+
+    def _nearby_profile(self) -> str | None:
+        if self._proximity is None or not self._settings.get(CONF_PROXIMITY_ENABLED, False):
+            return None
+        profile_id = self._proximity.nearby_profile(
+            self._settings.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+        )
+        if profile_id is not None:
+            _LOGGER.debug("Phone proximity selected profile %s", profile_id)
+        return profile_id
 
     def sync_status(self, profile_id: str) -> str:
         """Return the profile's current SparkyFitness sync state."""
@@ -172,6 +199,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             self._sync_wake.set()
         if not self._profiles:
             return
+        if self._proximity is not None:
+            self._proximity.async_start()
         self._unsubscribe = bluetooth.async_register_advertisement_callback(
             self.hass,
             self._advertisement,
@@ -294,7 +323,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return profile
 
     def _resolve_profile(self, wake_id: int) -> Coroutine[Any, Any, SessionProfile | None]:
-        future = self._identity.request(wake_id)
+        future = self._identity.request(wake_id, self._nearby_profile())
 
         async def resolve() -> SessionProfile | None:
             profile_id = await future
@@ -394,7 +423,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             if device is None:
                 continue
             # Keep this session's readings bound to its profile, even if the user switches profiles.
-            profile_id = self._active_profile_id
+            profile_id = self._nearby_profile() or self._active_profile_id
             profile = self._profile_snapshot(profile_id)
             stop_event = self._session_stop = asyncio.Event()
             self._session_done.clear()
@@ -573,6 +602,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
+        if self._proximity is not None:
+            self._proximity.async_stop()
         tasks = [task for task in (self._task, self._sync_task) if task is not None]
         for task in tasks:
             task.cancel()

@@ -23,11 +23,14 @@ from custom_components.huawei_ah100.config_flow import (
 from custom_components.huawei_ah100.const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
+    CONF_BEACON_UUID,
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_PROXIMITY_ENABLED,
+    CONF_PROXIMITY_RSSI,
     CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SEX,
     CONF_SPARKY_API_KEY,
@@ -532,6 +535,8 @@ async def test_options_flow_only_changes_shared_connection_settings() -> None:
         CONF_USER_ID,
         CONF_ALLOW_BIND,
         CONF_REQUIRE_PROFILE_CONFIRMATION,
+        CONF_PROXIMITY_ENABLED,
+        CONF_PROXIMITY_RSSI,
     ]
     assert result["type"] == "create_entry"
     assert CONF_ADDRESS not in result["data"]
@@ -539,6 +544,8 @@ async def test_options_flow_only_changes_shared_connection_settings() -> None:
         CONF_USER_ID: 2,
         CONF_ALLOW_BIND: True,
         CONF_REQUIRE_PROFILE_CONFIRMATION: False,
+        CONF_PROXIMITY_ENABLED: False,
+        CONF_PROXIMITY_RSSI: -65,
     }
     assert validated_options[CONF_REQUIRE_PROFILE_CONFIRMATION] is False
 
@@ -553,6 +560,8 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
             CONF_USER_ID: 2.0,
             CONF_ALLOW_BIND: True,
             CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+            CONF_PROXIMITY_ENABLED: True,
+            CONF_PROXIMITY_RSSI: -70.0,
         }
     )
 
@@ -563,6 +572,8 @@ async def test_options_flow_preserves_active_profile_and_other_options() -> None
         CONF_USER_ID: 2,
         CONF_ALLOW_BIND: True,
         CONF_REQUIRE_PROFILE_CONFIRMATION: True,
+        CONF_PROXIMITY_ENABLED: True,
+        CONF_PROXIMITY_RSSI: -70,
     }
 
 
@@ -728,3 +739,106 @@ async def test_profile_reconfigure_rejects_another_profiles_title() -> None:
     assert result["type"] == "form"
     assert result["step_id"] == "reconfigure"
     assert result["errors"] == {CONF_NAME: "duplicate_profile_name"}
+
+
+@pytest.mark.parametrize(
+    ("user_input", "error_key", "error"),
+    [
+        pytest.param(
+            {CONF_PROXIMITY_ENABLED: "yes"},
+            CONF_PROXIMITY_ENABLED,
+            "invalid_proximity_enabled",
+            id="non_boolean_toggle",
+        ),
+        pytest.param(
+            {CONF_PROXIMITY_RSSI: -20}, CONF_PROXIMITY_RSSI, "invalid_proximity_rssi", id="too_high"
+        ),
+        pytest.param(
+            {CONF_PROXIMITY_RSSI: -101},
+            CONF_PROXIMITY_RSSI,
+            "invalid_proximity_rssi",
+            id="too_low",
+        ),
+        pytest.param(
+            {CONF_PROXIMITY_RSSI: -65.5},
+            CONF_PROXIMITY_RSSI,
+            "invalid_proximity_rssi",
+            id="fractional",
+        ),
+    ],
+)
+async def test_options_flow_rejects_invalid_proximity_settings(
+    user_input: dict[str, object], error_key: str, error: str
+) -> None:
+    result = await _options_flow().async_step_init(
+        {CONF_USER_ID: 1, CONF_ALLOW_BIND: False, **user_input}
+    )
+
+    assert result["type"] == "form"
+    assert result["errors"] == {error_key: error}
+
+
+BEACON_UUID = "e2c56db5-dffb-48d2-b060-d0f5a71096e0"
+
+
+def test_beacon_uuid_is_only_offered_for_profile_subentries() -> None:
+    assert CONF_BEACON_UUID in [key.schema for key in PROFILE_SCHEMA.schema]
+    assert CONF_BEACON_UUID not in [key.schema for key in USER_SCHEMA.schema]
+
+
+@pytest.mark.parametrize(
+    "beacon_uuid",
+    [BEACON_UUID.upper(), BEACON_UUID.replace("-", ""), f" {BEACON_UUID} "],
+)
+async def test_profile_add_stores_canonical_beacon_uuid(beacon_uuid: str) -> None:
+    flow = _profile_flow(_profile_entry([_profile_subentry()]))
+
+    result = await flow.async_step_user(_profile_input(name="Alex", phone_beacon_uuid=beacon_uuid))
+
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_BEACON_UUID] == BEACON_UUID
+
+
+async def test_profile_add_rejects_invalid_beacon_uuid() -> None:
+    flow = _profile_flow(_profile_entry([_profile_subentry()]))
+
+    result = await flow.async_step_user(_profile_input(name="Alex", phone_beacon_uuid="phone"))
+
+    assert result["type"] == "form"
+    assert result["errors"] == {CONF_BEACON_UUID: "invalid_beacon_uuid"}
+
+
+async def test_profile_add_rejects_beacon_uuid_of_another_profile() -> None:
+    existing = _profile_subentry(
+        data={**_profile_data(_profile_input(), legacy_profile=True), CONF_BEACON_UUID: BEACON_UUID}
+    )
+    flow = _profile_flow(_profile_entry([existing]))
+
+    result = await flow.async_step_user(
+        _profile_input(name="Alex", phone_beacon_uuid=BEACON_UUID.upper())
+    )
+
+    assert result["type"] == "form"
+    assert result["errors"] == {CONF_BEACON_UUID: "duplicate_beacon_uuid"}
+
+
+@pytest.mark.parametrize(
+    ("beacon_input", "expected"),
+    [
+        pytest.param({CONF_BEACON_UUID: BEACON_UUID}, {CONF_BEACON_UUID: BEACON_UUID}, id="kept"),
+        pytest.param({}, {}, id="cleared"),
+    ],
+)
+async def test_profile_reconfigure_keeps_own_beacon_uuid_or_clears_it(
+    beacon_input: dict[str, str], expected: dict[str, str]
+) -> None:
+    subentry = _profile_subentry(
+        data={**_profile_data(_profile_input(), legacy_profile=True), CONF_BEACON_UUID: BEACON_UUID}
+    )
+    flow = _profile_flow(_profile_entry([subentry]), reconfigure_subentry_id=subentry.subentry_id)
+
+    result = await flow.async_step_reconfigure(_profile_input(name="Primary", **beacon_input))
+
+    assert result["type"] == "abort"
+    data = flow.hass.config_entries.async_update_subentry.call_args.kwargs["data"]
+    assert {key: data[key] for key in data if key == CONF_BEACON_UUID} == expected
