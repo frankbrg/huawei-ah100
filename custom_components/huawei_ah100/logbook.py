@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from homeassistant.components.logbook import LOGBOOK_ENTRY_MESSAGE, LOGBOOK_ENTRY_NAME
+from homeassistant.components.logbook import (
+    LOGBOOK_ENTRY_ICON,
+    LOGBOOK_ENTRY_MESSAGE,
+    LOGBOOK_ENTRY_NAME,
+)
 from homeassistant.core import Event, HomeAssistant, callback
 
 from .const import DOMAIN, NAME
@@ -52,6 +56,7 @@ def async_describe_events(
     def describe_activated(event: Event) -> dict[str, str]:
         return {
             LOGBOOK_ENTRY_NAME: NAME,
+            LOGBOOK_ENTRY_ICON: "mdi:account-check",
             LOGBOOK_ENTRY_MESSAGE: (
                 f"activated profile {event.data.get('profile_name')} by {_method(event.data)}"
             ),
@@ -62,6 +67,7 @@ def async_describe_events(
         reason = event.data.get("reason")
         return {
             LOGBOOK_ENTRY_NAME: NAME,
+            LOGBOOK_ENTRY_ICON: "mdi:account-off-outline",
             LOGBOOK_ENTRY_MESSAGE: (
                 f"deactivated profile {event.data.get('profile_name')} "
                 f"(activated by {_method(event.data)}): "
@@ -76,7 +82,11 @@ def async_describe_events(
             message += f", moved from profile {redirected_from}"
         if event.data.get("weight_check_overridden"):
             message += ", kept despite the weight check because it was selected directly"
-        return {LOGBOOK_ENTRY_NAME: NAME, LOGBOOK_ENTRY_MESSAGE: message}
+        return {
+            LOGBOOK_ENTRY_NAME: NAME,
+            LOGBOOK_ENTRY_ICON: "mdi:scale-bathroom",
+            LOGBOOK_ENTRY_MESSAGE: message,
+        }
 
     @callback
     def describe_rejected(event: Event) -> dict[str, str]:
@@ -86,13 +96,18 @@ def async_describe_events(
         )
         if event.data.get("nearby_profiles"):
             message += ", phones of several profiles were nearby"
-        return {LOGBOOK_ENTRY_NAME: NAME, LOGBOOK_ENTRY_MESSAGE: message}
+        return {
+            LOGBOOK_ENTRY_NAME: NAME,
+            LOGBOOK_ENTRY_ICON: "mdi:scale-unbalanced",
+            LOGBOOK_ENTRY_MESSAGE: message,
+        }
 
     @callback
     def describe_multiple_phones(event: Event) -> dict[str, str]:
         names = ", ".join(event.data.get("profile_names", []))
         return {
             LOGBOOK_ENTRY_NAME: NAME,
+            LOGBOOK_ENTRY_ICON: "mdi:cellphone-wireless",
             LOGBOOK_ENTRY_MESSAGE: f"phones of several profiles nearby ({names}), "
             "phone proximity cannot choose a profile",
         }

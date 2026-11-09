@@ -15,35 +15,40 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
 
 
 @pytest.mark.parametrize(
-    ("event_type", "data", "message"),
+    ("event_type", "data", "icon", "message"),
     [
         pytest.param(
             "huawei_ah100_profile_activated",
             {"profile_name": "Bob", "method": "proximity"},
+            "mdi:account-check",
             "activated profile Bob by phone proximity",
             id="activated",
         ),
         pytest.param(
             "huawei_ah100_profile_deactivated",
             {"profile_name": "Bob", "method": "selection", "reason": "weighing_saved"},
+            "mdi:account-off-outline",
             "deactivated profile Bob (activated by direct selection): weighing saved",
             id="deactivated",
         ),
         pytest.param(
             "huawei_ah100_measurement_saved",
             {"weight_kg": 61.0, "assigned_by": "weight"},
+            "mdi:scale-bathroom",
             "saved 61.0 kg, assigned by weight",
             id="saved",
         ),
         pytest.param(
             "huawei_ah100_measurement_saved",
             {"weight_kg": 61.0, "assigned_by": "selection", "redirected_from": "bob"},
+            "mdi:scale-bathroom",
             "saved 61.0 kg, assigned by direct selection, moved from profile bob",
             id="redirected",
         ),
         pytest.param(
             "huawei_ah100_measurement_saved",
             {"weight_kg": 95.0, "assigned_by": "selection", "weight_check_overridden": True},
+            "mdi:scale-bathroom",
             "saved 95.0 kg, assigned by direct selection, "
             "kept despite the weight check because it was selected directly",
             id="overridden",
@@ -51,6 +56,7 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
         pytest.param(
             "huawei_ah100_multiple_phones_nearby",
             {"profile_names": ["Alice", "Bob"]},
+            "mdi:cellphone-wireless",
             "phones of several profiles nearby (Alice, Bob), "
             "phone proximity cannot choose a profile",
             id="multiple_phones",
@@ -58,6 +64,7 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
         pytest.param(
             "huawei_ah100_profile_deactivated",
             {"profile_name": "Bob", "method": "proximity", "reason": "multiple_phones_nearby"},
+            "mdi:account-off-outline",
             "deactivated profile Bob (activated by phone proximity): "
             "phones of several profiles nearby",
             id="deactivated_by_crowd",
@@ -65,21 +72,24 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
         pytest.param(
             "huawei_ah100_measurement_rejected",
             {"weight_kg": 85.0, "reason": "no_matching_profile", "nearby_profiles": ["a", "b"]},
+            "mdi:scale-unbalanced",
             "discarded 85.0 kg: weight fits no profile, phones of several profiles were nearby",
             id="rejected_with_crowd",
         ),
         pytest.param(
             "huawei_ah100_measurement_rejected",
             {"weight_kg": 85.0, "reason": "ambiguous_weight"},
+            "mdi:scale-unbalanced",
             "discarded 85.0 kg: weight fits several profiles",
             id="rejected",
         ),
     ],
 )
 def test_logbook_describes_assignment_events(
-    event_type: str, data: dict[str, object], message: str
+    event_type: str, data: dict[str, object], icon: str, message: str
 ) -> None:
     assert _describers()[event_type](Event(event_type, data)) == {
         "name": "Huawei AH100",
+        "icon": icon,
         "message": message,
     }
