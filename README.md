@@ -146,6 +146,23 @@ This integration sends only new live weighings: weight in kilograms and body-fat
 
 The **SparkyFitness sync** sensor reports `disabled`, `pending`, `synced`, or `error`. A configured profile may show `pending` before its first confirmed sync. If the server is unavailable, a measurement stays queued and sync retries later. Changing the URL or API key does not reassign a queued measurement to a different account. Setting up the integration does not create a test measurement or backfill old readings.
 
+## Dashboard cards
+
+The integration brings two dashboard cards. They load automatically; no resource entry or separate download is needed. Edit a dashboard, select **Add card**, and search for **Huawei AH100**. After an update, reload the browser page once.
+
+- **Huawei AH100 scale** (`custom:huawei-ah100-card`): all profiles of a scale with their latest weight, body fat, time of the last weighing, SparkyFitness status, and a 30-day trend from the daily averages. A dropdown chooses the profile for the next weighing, a line shows which profile is active and how, and a discarded weighing from the past 24 hours is shown with its reason. Select a profile to open its weight history.
+- **Huawei AH100 profile** (`custom:huawei-ah100-profile-card`): one profile with its person picture, weight, trend, body fat, and impedance, and a **Weigh now** button. The button selects this profile for the next weighing; the card then asks you to step on the scale and offers **Cancel**. When phone proximity or a confirmation has activated the profile, the card says so.
+
+```yaml
+type: custom:huawei-ah100-card
+device_id: <scale device>
+---
+type: custom:huawei-ah100-profile-card
+device_id: <profile device>
+```
+
+Both cards accept an optional `title`. They follow the dashboard theme and use English, German, or French depending on the Home Assistant language. The trend needs long-term statistics, so it appears after the first day with weighings.
+
 ## Troubleshooting
 
 - **The nearby chooser is empty or has no scale name:** close Huawei Health, wake the scale, and retry within Bluetooth range. Check that Home Assistant's Bluetooth adapter is in **Automatic** or **Active** mode so the initial scan can retrieve the advertised name. If it is passive-only, use **Manual setup** and enter the MAC address.

@@ -93,6 +93,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._beacon_profile_id: str | None = None
         # Profiles whose phones are all in range at once, so proximity cannot decide.
         self._crowded_profile_ids: list[str] = []
+        self._last_rejection: dict[str, Any] | None = None
         self._assignment: tuple[str, str] | None = None
         self._assignment_since: datetime | None = None
         self._session_assignment: tuple[str, str] | None = None
@@ -152,6 +153,11 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     def assignment_since(self) -> datetime | None:
         """Return when the current profile was activated."""
         return self._assignment_since
+
+    @property
+    def last_rejection(self) -> dict[str, Any] | None:
+        """Return the most recent discarded weighing since Home Assistant started."""
+        return self._last_rejection
 
     def profile_data(self, profile_id: str) -> dict[str, Any] | None:
         """Return the latest stored measurement for a profile, if available."""
@@ -538,6 +544,12 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self, measurement: dict[str, Any], profile_id: str | None, reason: str, **details: Any
     ) -> None:
         _LOGGER.info("Weighing of %s kg discarded (%s)", measurement["weight_kg"], reason)
+        self._last_rejection = {
+            "rejected_at": dt_util.utcnow().isoformat(),
+            "weight_kg": measurement["weight_kg"],
+            "reason": reason,
+        }
+        self.async_update_listeners()
         self.hass.bus.async_fire(
             f"{DOMAIN}_measurement_rejected",
             {

@@ -146,6 +146,23 @@ L’intégration envoie uniquement les nouvelles pesées réelles : le poids en 
 
 Le capteur **Synchronisation SparkyFitness** indique « désactivée », « en attente », « synchronisée » ou « erreur ». Un profil configuré peut afficher « en attente » avant sa première synchronisation confirmée. Si le serveur est inaccessible, la mesure reste en file d’attente et l’envoi sera réessayé. Un changement d’URL ou de clé ne redirige pas une mesure en attente vers un autre compte. La configuration ne crée pas de fausse mesure de test et n’envoie pas l’historique.
 
+## Cartes de tableau de bord
+
+L’intégration fournit deux cartes de tableau de bord. Elles se chargent automatiquement, sans ressource à déclarer ni téléchargement séparé. Modifiez un tableau de bord, choisissez **Ajouter une carte** et recherchez **Huawei AH100**. Après une mise à jour, rechargez une fois la page du navigateur.
+
+- **Balance Huawei AH100** (`custom:huawei-ah100-card`) : tous les profils d’une balance avec le dernier poids, la masse grasse, l’heure de la dernière pesée, l’état SparkyFitness et une tendance sur 30 jours issue des moyennes journalières. Une liste déroulante choisit le profil de la prochaine pesée, une ligne indique quel profil est actif et comment, et une pesée ignorée au cours des dernières 24 heures est affichée avec son motif. Sélectionnez un profil pour ouvrir l’historique de son poids.
+- **Profil Huawei AH100** (`custom:huawei-ah100-profile-card`) : un profil avec la photo de la personne, le poids, la tendance, la masse grasse et l’impédance, ainsi qu’un bouton **Peser maintenant**. Le bouton sélectionne ce profil pour la prochaine pesée ; la carte invite alors à monter sur la balance et propose **Annuler**. Si la proximité du téléphone ou une confirmation a activé le profil, la carte l’indique.
+
+```yaml
+type: custom:huawei-ah100-card
+device_id: <appareil balance>
+---
+type: custom:huawei-ah100-profile-card
+device_id: <appareil profil>
+```
+
+Les deux cartes acceptent un `title` facultatif. Elles suivent le thème du tableau de bord et s’affichent en anglais, allemand ou français selon la langue de Home Assistant. La tendance repose sur les statistiques à long terme ; elle apparaît après le premier jour avec des pesées.
+
 ## Dépannage
 
 - **La liste des appareils proches est vide ou sans nom :** fermez Huawei Health, réveillez la balance et relancez la recherche à portée Bluetooth. Vérifiez que l’adaptateur Bluetooth de Home Assistant est en mode **Automatique** ou **Actif** pour récupérer le nom annoncé. Avec un adaptateur uniquement passif, utilisez **Configuration manuelle** et saisissez l’adresse MAC.

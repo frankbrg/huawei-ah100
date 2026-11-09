@@ -268,14 +268,23 @@ class HuaweiAH100AssignedProfileSensor(CoordinatorEntity[HuaweiScaleCoordinator]
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        if (assignment := self.coordinator.assignment) is None:
-            return {"method": None}
-        since = self.coordinator.assignment_since
-        return {
-            "profile_id": assignment[0],
-            "method": assignment[1],
-            "activated_at": since.isoformat() if since is not None else None,
-        }
+        attributes: dict[str, Any] = {"method": None}
+        if (assignment := self.coordinator.assignment) is not None:
+            since = self.coordinator.assignment_since
+            attributes = {
+                "profile_id": assignment[0],
+                "method": assignment[1],
+                "activated_at": since.isoformat() if since is not None else None,
+            }
+        if (rejection := self.coordinator.last_rejection) is not None:
+            attributes.update(
+                {
+                    "last_rejected_at": rejection["rejected_at"],
+                    "last_rejected_weight_kg": rejection["weight_kg"],
+                    "last_rejected_reason": rejection["reason"],
+                }
+            )
+        return attributes
 
     @property
     def device_info(self) -> DeviceInfo:

@@ -240,6 +240,7 @@ def test_assigned_profile_sensor_shows_activated_profile_and_method() -> None:
     coordinator = _coordinator({"legacy": LEGACY_PROFILE, "second": SECOND_PROFILE})
     coordinator.assignment = None
     coordinator.assignment_since = None
+    coordinator.last_rejection = None
     sensor = HuaweiAH100AssignedProfileSensor(coordinator)
 
     assert sensor.unique_id == f"{ADDRESS}_assigned_profile"
@@ -255,4 +256,22 @@ def test_assigned_profile_sensor_shows_activated_profile_and_method() -> None:
         "profile_id": "second",
         "method": "proximity",
         "activated_at": since.isoformat(),
+    }
+
+
+def test_assigned_profile_sensor_reports_the_last_discarded_weighing() -> None:
+    coordinator = _coordinator({"legacy": LEGACY_PROFILE})
+    coordinator.assignment = None
+    coordinator.assignment_since = None
+    coordinator.last_rejection = {
+        "rejected_at": "2026-11-09T07:40:00+00:00",
+        "weight_kg": 85.0,
+        "reason": "ambiguous_weight",
+    }
+
+    assert HuaweiAH100AssignedProfileSensor(coordinator).extra_state_attributes == {
+        "method": None,
+        "last_rejected_at": "2026-11-09T07:40:00+00:00",
+        "last_rejected_weight_kg": 85.0,
+        "last_rejected_reason": "ambiguous_weight",
     }

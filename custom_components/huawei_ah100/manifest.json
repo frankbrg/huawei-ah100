@@ -6,7 +6,7 @@
   ],
   "codeowners": ["@frankbrg"],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": ["bluetooth_adapters", "frontend", "http"],
   "documentation": "https://github.com/frankbrg/huawei-ah100",
   "integration_type": "device",
   "iot_class": "local_push",

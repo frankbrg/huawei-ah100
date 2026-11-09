@@ -1503,6 +1503,8 @@ async def test_weighing_without_selection_is_discarded_unless_exactly_one_profil
         await scale.async_stop()
 
     assert saved_profiles(scale) == []
+    assert scale.last_rejection["reason"] == reason
+    assert scale.last_rejection["weight_kg"] == weight
     assert [event.event_type for event in events] == ["huawei_ah100_measurement_rejected"]
     assert events[0].data == {
         "entry_id": scale.entry.entry_id,
