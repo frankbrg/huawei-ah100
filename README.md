@@ -68,7 +68,7 @@ If the nearby search finds no scale, wake it again and choose **Retry search**, 
 The first setup form creates the first named profile and sets the shared connection options. Enter:
 
 - **Profile name:** a name that identifies whose readings these are.
-- **Birth date:** the profile user's actual date of birth, chosen with the date picker. It uses the language and date format set in your Home Assistant user profile.
+- **Birth date:** the profile user's actual date of birth, entered in the browser's date field. You can type day, month and year in your browser's date format, or open the picker to choose month and year.
 - **Height:** the profile user's height in whole centimeters.
 - **Sex:** the profile value for the person who will use the scale.
 - **Initial weight hint:** a starting value for the scale profile. It is not a measurement or sensor reading.

@@ -68,7 +68,7 @@ Si la recherche ne trouve aucune balance, réveillez-la à nouveau puis sélecti
 Le formulaire initial crée le premier profil nommé et configure la connexion partagée. Renseignez :
 
 - **Nom du profil :** un nom qui indique à qui appartiennent les mesures.
-- **Date de naissance :** la date réelle de la personne du profil, choisie avec le sélecteur de date. Il suit la langue et le format de date définis dans votre profil utilisateur Home Assistant.
+- **Date de naissance :** la date réelle de la personne du profil, saisie dans le champ de date du navigateur. Vous pouvez taper le jour, le mois et l'année au format de date de votre navigateur, ou ouvrir le sélecteur pour choisir le mois et l'année.
 - **Taille :** la taille de la personne en centimètres entiers.
 - **Sexe :** la valeur du profil de la personne qui utilisera la balance.
 - **Poids initial indicatif :** une valeur de départ pour le profil de la balance. Ce n’est pas une mesure ni une valeur de capteur.

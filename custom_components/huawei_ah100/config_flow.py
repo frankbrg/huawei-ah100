@@ -95,8 +95,8 @@ def _profile_schema(
             probatio.Required(CONF_NAME, default=name_default): selector(
                 {"text": {"type": "text"}}
             ),
-            # The frontend shows the date picker in the user's HA language and date format.
-            probatio.Required(CONF_BIRTH_DATE): selector({"date": {}}),
+            # Native date input: typed in the browser's date format, picker with year choice.
+            probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "date"}}),
             probatio.Required(CONF_HEIGHT): selector(
                 {"number": {"min": 1, "max": 255, "step": 1, "mode": "box"}}
             ),

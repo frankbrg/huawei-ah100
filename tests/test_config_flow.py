@@ -211,11 +211,12 @@ def test_initial_schema_separates_connection_and_profile_data() -> None:
         value for key, value in PROFILE_SCHEMA.schema.items() if key.schema == CONF_PERSON
     )
     assert person_selector.config["domain"] == ["person"]
-    # A date picker lets the frontend use the user's HA language and date format.
+    # The calendar-only DateSelector has no year choice, which is unusable for birth dates.
     birth_date_selector = next(
         value for key, value in PROFILE_SCHEMA.schema.items() if key.schema == CONF_BIRTH_DATE
     )
-    assert type(birth_date_selector).__name__ == "DateSelector"
+    assert type(birth_date_selector).__name__ == "TextSelector"
+    assert birth_date_selector.config["type"] == "date"
     assert birth_date_selector("2000-01-02") == "2000-01-02"
     assert CONF_PERSON in [key.schema for key in USER_SCHEMA.schema]
     assert CONF_PERSON in [key.schema for key in PROFILE_SCHEMA.schema]
