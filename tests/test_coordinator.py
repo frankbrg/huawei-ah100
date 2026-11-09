@@ -69,6 +69,16 @@ def make_entry(*, profiles=None, options=None):
     )
 
 
+@pytest.fixture(autouse=True)
+def no_phones_in_range():
+    """Tests that fake nearby_profile must not reach the real Bluetooth manager."""
+    with patch(
+        "custom_components.huawei_ah100.proximity.PhoneProximity.profiles_in_range",
+        return_value=[],
+    ):
+        yield
+
+
 @pytest.fixture
 async def coordinator(tmp_path):
     hass = HomeAssistant(str(tmp_path))
@@ -1683,3 +1693,46 @@ async def test_selection_is_confirmed_without_asking_in_confirmation_mode(
     ]
     assert events[0].data["source"] == "selection"
     assert events[1].data["reason"] == "weighing_saved"
+
+
+async def test_phones_of_several_profiles_are_logged_instead_of_out_of_range(
+    coordinator: HuaweiScaleCoordinator,
+) -> None:
+    hass = coordinator.hass
+    scale = HuaweiScaleCoordinator(hass, make_household_entry(proximity_profile_selection=True))
+    scale._proximity = Mock()
+    events, unsubscribes = capture_events(
+        hass, "profile_activated", "profile_deactivated", "multiple_phones_nearby"
+    )
+    try:
+        scale._proximity.nearby_profile.return_value = "bob"
+        scale._proximity.profiles_in_range.return_value = ["bob"]
+        scale._async_update_proximity()
+        scale._proximity.nearby_profile.return_value = None
+        scale._proximity.profiles_in_range.return_value = ["alice", "bob"]
+        scale._async_update_proximity()
+        scale._async_update_proximity()
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 100.0}, "bob", method="weight")
+        rejected, unsubscribe_rejected = capture_events(hass, "measurement_rejected")
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": 100.0}, "bob", method="weight")
+        unsubscribe_rejected[0]()
+        await hass.async_block_till_done()
+    finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
+        await scale.async_stop()
+
+    assert [
+        (event.event_type.removeprefix("huawei_ah100_"), event.data.get("reason"))
+        for event in events
+    ] == [
+        ("profile_activated", None),
+        ("multiple_phones_nearby", None),
+        ("profile_deactivated", "multiple_phones_nearby"),
+    ]
+    assert events[1].data == {
+        "entry_id": scale.entry.entry_id,
+        "profile_ids": ["alice", "bob"],
+        "profile_names": ["Alice", "Bob"],
+    }
+    assert rejected[0].data["nearby_profiles"] == ["alice", "bob"]

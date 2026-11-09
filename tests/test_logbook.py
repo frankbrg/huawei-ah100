@@ -49,6 +49,26 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
             id="overridden",
         ),
         pytest.param(
+            "huawei_ah100_multiple_phones_nearby",
+            {"profile_names": ["Alice", "Bob"]},
+            "phones of several profiles nearby (Alice, Bob), "
+            "phone proximity cannot choose a profile",
+            id="multiple_phones",
+        ),
+        pytest.param(
+            "huawei_ah100_profile_deactivated",
+            {"profile_name": "Bob", "method": "proximity", "reason": "multiple_phones_nearby"},
+            "deactivated profile Bob (activated by phone proximity): "
+            "phones of several profiles nearby",
+            id="deactivated_by_crowd",
+        ),
+        pytest.param(
+            "huawei_ah100_measurement_rejected",
+            {"weight_kg": 85.0, "reason": "no_matching_profile", "nearby_profiles": ["a", "b"]},
+            "discarded 85.0 kg: weight fits no profile, phones of several profiles were nearby",
+            id="rejected_with_crowd",
+        ),
+        pytest.param(
             "huawei_ah100_measurement_rejected",
             {"weight_kg": 85.0, "reason": "ambiguous_weight"},
             "discarded 85.0 kg: weight fits several profiles",

@@ -14,6 +14,7 @@ EVENT_PROFILE_ACTIVATED = f"{DOMAIN}_profile_activated"
 EVENT_PROFILE_DEACTIVATED = f"{DOMAIN}_profile_deactivated"
 EVENT_MEASUREMENT_SAVED = f"{DOMAIN}_measurement_saved"
 EVENT_MEASUREMENT_REJECTED = f"{DOMAIN}_measurement_rejected"
+EVENT_MULTIPLE_PHONES_NEARBY = f"{DOMAIN}_multiple_phones_nearby"
 
 METHODS = {
     "selection": "direct selection",
@@ -26,6 +27,7 @@ DEACTIVATION_REASONS = {
     "weighing_saved": "weighing saved",
     "replaced": "replaced by another profile",
     "out_of_range": "phone out of range",
+    "multiple_phones_nearby": "phones of several profiles nearby",
     "deselected": "selection cleared",
 }
 REJECTION_REASONS = {
@@ -79,15 +81,24 @@ def async_describe_events(
     @callback
     def describe_rejected(event: Event) -> dict[str, str]:
         reason = event.data.get("reason")
+        message = (
+            f"discarded {event.data.get('weight_kg')} kg: {REJECTION_REASONS.get(reason, reason)}"
+        )
+        if event.data.get("nearby_profiles"):
+            message += ", phones of several profiles were nearby"
+        return {LOGBOOK_ENTRY_NAME: NAME, LOGBOOK_ENTRY_MESSAGE: message}
+
+    @callback
+    def describe_multiple_phones(event: Event) -> dict[str, str]:
+        names = ", ".join(event.data.get("profile_names", []))
         return {
             LOGBOOK_ENTRY_NAME: NAME,
-            LOGBOOK_ENTRY_MESSAGE: (
-                f"discarded {event.data.get('weight_kg')} kg: "
-                f"{REJECTION_REASONS.get(reason, reason)}"
-            ),
+            LOGBOOK_ENTRY_MESSAGE: f"phones of several profiles nearby ({names}), "
+            "phone proximity cannot choose a profile",
         }
 
     async_describe_event(DOMAIN, EVENT_PROFILE_ACTIVATED, describe_activated)
     async_describe_event(DOMAIN, EVENT_PROFILE_DEACTIVATED, describe_deactivated)
     async_describe_event(DOMAIN, EVENT_MEASUREMENT_SAVED, describe_saved)
     async_describe_event(DOMAIN, EVENT_MEASUREMENT_REJECTED, describe_rejected)
+    async_describe_event(DOMAIN, EVENT_MULTIPLE_PHONES_NEARBY, describe_multiple_phones)

@@ -105,6 +105,12 @@ class PhoneProximity:
                 result[profile_id] = max(rssi, result.get(profile_id, rssi))
         return result
 
+    def profiles_in_range(self, threshold: int) -> list[str]:
+        """Return every profile with a phone at or above the threshold."""
+        return sorted(
+            profile_id for profile_id, rssi in self.rssi_by_profile().items() if rssi >= threshold
+        )
+
     def nearby_profile(self, threshold: int) -> str | None:
         """Return the only profile with a phone at or above the threshold."""
         nearby = [

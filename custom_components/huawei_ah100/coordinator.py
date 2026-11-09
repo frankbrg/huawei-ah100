@@ -91,6 +91,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self._preset: tuple[str, str] | None = None
         self._claim: tuple[str, str] | None = None
         self._beacon_profile_id: str | None = None
+        # Profiles whose phones are all in range at once, so proximity cannot decide.
+        self._crowded_profile_ids: list[str] = []
         self._assignment: tuple[str, str] | None = None
         self._assignment_since: datetime | None = None
         self._session_assignment: tuple[str, str] | None = None
@@ -169,12 +171,44 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             self._settings.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
         )
 
+    def _profiles_in_range(self) -> list[str]:
+        if self._proximity is None or not self._settings.get(CONF_PROXIMITY_ENABLED, False):
+            return []
+        return self._proximity.profiles_in_range(
+            self._settings.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+        )
+
     @callback
     def _async_update_proximity(self, _now: datetime | None = None) -> None:
         beacon_profile_id = self._nearby_profile()
+        crowded = [] if beacon_profile_id is not None else self._profiles_in_range()
+        if len(crowded) < 2:
+            crowded = []
+        if crowded != self._crowded_profile_ids:
+            self._crowded_profile_ids = crowded
+            if crowded:
+                self._multiple_phones_event(crowded)
         if beacon_profile_id != self._beacon_profile_id:
             self._beacon_profile_id = beacon_profile_id
-            self._refresh_assignment("out_of_range" if beacon_profile_id is None else "replaced")
+            if beacon_profile_id is not None:
+                reason = "replaced"
+            elif crowded:
+                reason = "multiple_phones_nearby"
+            else:
+                reason = "out_of_range"
+            self._refresh_assignment(reason)
+
+    def _multiple_phones_event(self, profile_ids: list[str]) -> None:
+        names = [self._profiles[profile_id]["name"] for profile_id in profile_ids]
+        _LOGGER.info("Phones of several profiles are near the scale: %s", ", ".join(names))
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_multiple_phones_nearby",
+            {
+                "entry_id": self.entry.entry_id,
+                "profile_ids": profile_ids,
+                "profile_names": names,
+            },
+        )
 
     def _current_assignment(self) -> tuple[str, str] | None:
         if self._claim is not None:
@@ -528,11 +562,14 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         }
         candidates = matching_profiles(measurement["weight_kg"], references)
         if len(candidates) != 1:
+            details: dict[str, Any] = {"candidates": candidates}
+            if self._crowded_profile_ids:
+                details["nearby_profiles"] = self._crowded_profile_ids
             self._reject(
                 measurement,
                 None,
                 "ambiguous_weight" if candidates else "no_matching_profile",
-                candidates=candidates,
+                **details,
             )
             return None, measurement
         if candidates[0] == configured_profile_id:

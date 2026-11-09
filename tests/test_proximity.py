@@ -111,7 +111,10 @@ def test_two_nearby_phones_are_ambiguous(radio: FakeRadio) -> None:
     radio.see("bath", ALICE_PHONE, -60)
     radio.see("bath", BOB_PHONE, -62)
 
-    assert _tracker().nearby_profile(-65) is None
+    tracker = _tracker()
+    assert tracker.nearby_profile(-65) is None
+    assert tracker.profiles_in_range(-65) == ["alice", "bob"]
+    assert tracker.profiles_in_range(-61) == ["alice"]
 
 
 def test_stale_phone_reading_is_ignored(radio: FakeRadio) -> None:
