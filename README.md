@@ -1,6 +1,6 @@
 # Huawei AH100 for Home Assistant
 
-[English](README.md) | [Français](docs/README.fr.md)
+[English](README.md) | [Français](docs/README.fr.md) | [Deutsch](docs/README.de.md)
 
 ![Huawei AH100 integration illustration](docs/images/hero.svg)
 
