@@ -77,15 +77,27 @@ Le formulaire initial crée le premier profil nommé et configure la connexion p
 - **Identifiant utilisateur de la balance :** emplacement utilisé pour l’authentification Bluetooth, `1` par défaut. Ce réglage est partagé par tous les profils ; gardez `1` sauf si vous savez qu’un autre emplacement est nécessaire.
 - **Autoriser l’association :** réglage de connexion partagé. Activez-le si cet adaptateur n’a pas été autorisé par la balance et qu’une association est nécessaire. Cela peut modifier l’association existante ; laissez-le désactivé si l’adaptateur est déjà autorisé.
 
+<img src="images/screenshots/add-profile.png" alt="Formulaire de profil avec nom, date de naissance, taille, sexe, poids initial, personne, SparkyFitness et iBeacon" width="420">
+
+*Les champs du profil tels qu’affichés par **Ajouter un profil** (interface en anglais). Le premier formulaire de configuration contient les mêmes champs, plus l’adresse MAC et les options de connexion. La date de naissance suit le format de date de votre navigateur.*
+
 Validez le formulaire une seule fois. Fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs ne reçoivent des valeurs qu’après la réception d’une mesure réelle par Home Assistant ; le poids initial indicatif ne les alimente pas.
 
 ## Ajouter et choisir des profils
 
 Ouvrez la page de l’intégration Huawei AH100 dans **Paramètres → Appareils et services**, puis sélectionnez **Ajouter un profil** pour créer un autre profil. Vous pouvez modifier ou renommer un profil depuis la même page. Chaque nom doit être unique. Renommer un profil conserve l’identité de ses capteurs et leur historique.
 
+<img src="images/screenshots/integration-page.png" alt="Page de l’intégration Huawei AH100 avec la balance et les profils Anna et Ben" width="560">
+
+*La page de l’intégration : un appareil pour la balance et un par profil. **Ajouter un profil** crée un autre profil ; l’icône d’engrenage d’un profil permet de le modifier.*
+
 Chaque profil possède ses propres mesures et son propre appareil Home Assistant, lié à la balance physique. Après la mise à jour depuis l’ancienne configuration à profil unique, elle devient **Profile 1** et conserve ses identifiants de capteurs, ses mesures et leur historique.
 
 L’**Identifiant utilisateur de la balance**, l’option **Autoriser l’association** et l’option facultative **Confirmer le profil à chaque pesée** sont des réglages de connexion partagés par tous les profils et se trouvent dans les options de l’intégration. Cet identifiant est l’emplacement de la balance utilisé pour l’authentification Bluetooth, pas l’identifiant du profil. Sélectionner un profil ne modifie pas ce réglage et ne réassocie pas la balance. Si une session est en cours, Home Assistant la laisse se terminer et associe son résultat au profil d’origine avant d’utiliser le nouveau profil pour la prochaine session.
+
+<img src="images/screenshots/options.png" alt="Options de connexion de la balance : identifiant, association, confirmation, contrôle du poids et proximité" width="450">
+
+*Les options de connexion de la balance, ouvertes avec l’icône d’engrenage de la balance.*
 
 ## Attribution du profil
 
@@ -97,6 +109,10 @@ L’intégration détermine le profil de chaque pesée dans cet ordre :
 4. **Poids :** avec **Automatique** et sans téléphone proche, la pesée est attribuée au seul profil dont la dernière pesée, ou le poids initial indicatif avant la première pesée, est à moins de 5 % (10 % pour le poids indicatif). Si deux profils ou plus correspondent, ou aucun, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `reason` `ambiguous_weight` ou `no_matching_profile` et les profils correspondants dans `candidates`. La balance calcule la masse grasse avec le profil pour lequel elle a été configurée, celui de la dernière personne pesée ; la masse grasse est donc supprimée si la pesée revient à quelqu’un d’autre. Avec un seul profil, chaque pesée lui est attribuée.
 
 Chaque activation et désactivation est journalisée. Le capteur **Profil attribué** indique le profil actif pour la prochaine pesée, ou **Automatique**, avec les attributs `method` (`selection`, `confirmation` ou `proximity`) et `activated_at` ; son historique montre quand chaque profil était actif. Les événements `huawei_ah100_profile_activated` et `huawei_ah100_profile_deactivated` contiennent `entry_id`, `profile_id`, `profile_name`, `method`, `person_entity_id` facultatif et, pour la désactivation, une `reason` : `weighing_saved`, `replaced`, `deselected`, `out_of_range`, `multiple_phones_nearby` ou le motif d’annulation d’une confirmation. Le journal de bord liste ces événements avec les pesées enregistrées et leur mode d’attribution (`assigned_by` dans `huawei_ah100_measurement_saved`), ainsi que les pesées ignorées et leur motif.
+
+<img src="images/screenshots/logbook.png" alt="Entrées du journal de bord pour une pesée ignorée, un profil désactivé et une pesée enregistrée" width="500">
+
+*Entrées du journal de bord : un profil sélectionné directement, la pesée enregistrée pour lui, la fin de la sélection et une pesée qui ne correspondait à aucun profil.*
 
 ## Automatisations de foyer facultatives
 
@@ -150,8 +166,20 @@ Le capteur **Synchronisation SparkyFitness** indique « désactivée », « en a
 
 L’intégration fournit deux cartes de tableau de bord. Elles se chargent automatiquement, sans ressource à déclarer ni téléchargement séparé. Modifiez un tableau de bord, choisissez **Ajouter une carte** et recherchez **Huawei AH100**. Après une mise à jour, rechargez une fois la page du navigateur.
 
+<img src="images/screenshots/dashboard.png" alt="Tableau de bord avec la carte de la balance et deux cartes de profil" width="800">
+
+*Exemple de tableau de bord avec des données de démonstration : la carte de la balance et une carte de profil par personne.*
+
 - **Balance Huawei AH100** (`custom:huawei-ah100-card`) : tous les profils d’une balance avec le dernier poids, la masse grasse, l’heure de la dernière pesée, l’état SparkyFitness et une tendance sur 30 jours issue des moyennes journalières. Une liste déroulante choisit le profil de la prochaine pesée, une ligne indique quel profil est actif et comment, et une pesée ignorée au cours des dernières 24 heures est affichée avec son motif. Sélectionnez un profil pour ouvrir l’historique de son poids.
 - **Profil Huawei AH100** (`custom:huawei-ah100-profile-card`) : un profil avec la photo de la personne, le poids, la tendance, la masse grasse et l’impédance, ainsi qu’un bouton **Peser maintenant**. Le bouton sélectionne ce profil pour la prochaine pesée ; la carte invite alors à monter sur la balance et propose **Annuler**. Si la proximité du téléphone ou une confirmation a activé le profil, la carte l’indique.
+
+| Carte de la balance | Profil sélectionné | Pesée ignorée |
+| --- | --- | --- |
+| <img src="images/screenshots/card-scale.png" alt="Carte de la balance en mode automatique" width="260"> | <img src="images/screenshots/card-scale-selected.png" alt="Carte de la balance avec Anna sélectionnée pour la prochaine pesée" width="260"> | <img src="images/screenshots/card-scale-rejected.png" alt="Carte de la balance affichant une pesée ignorée" width="230"> |
+
+| Carte de profil | Après **Peser maintenant** |
+| --- | --- |
+| <img src="images/screenshots/card-profile.png" alt="Carte de profil avec poids, tendance et bouton" width="300"> | <img src="images/screenshots/card-profile-waiting.png" alt="Carte de profil demandant de monter sur la balance, avec un bouton Annuler" width="300"> |
 
 ```yaml
 type: custom:huawei-ah100-card

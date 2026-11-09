@@ -77,15 +77,27 @@ The first setup form creates the first named profile and sets the shared connect
 - **Scale user ID:** the scale's authentication slot, default `1`. It is shared by all profiles; leave it at `1` unless you know a different slot is required.
 - **Allow pairing or binding:** a shared connection option. Enable it if this adapter has not been authorized by the scale and binding is needed. Binding can change the existing association; leave it off if the adapter is already authorized.
 
+<img src="docs/images/screenshots/add-profile.png" alt="Profile form with name, birth date, height, sex, initial weight hint, person, SparkyFitness and phone iBeacon fields" width="420">
+
+*The profile fields as shown by **Add profile**. The first setup form has the same fields plus the MAC address and the connection options. The birth date uses your browser's date format.*
+
 Submit the form once. Close Huawei Health, step onto the scale barefoot, and stand still until the weighing finishes. Sensors receive values only after Home Assistant gets an actual measurement; the initial weight hint does not populate them.
 
 ## Add and select profiles
 
 Open the Huawei AH100 integration page in **Settings → Devices & services** and select **Add profile** to create another profile. Edit or rename a profile from that same page. Profile names must be unique. Renaming a profile keeps its sensor identities and history.
 
+<img src="docs/images/screenshots/integration-page.png" alt="Huawei AH100 integration page with the scale device and the profiles Anna and Ben" width="560">
+
+*The integration page: one scale device and one device per profile. **Add profile** creates another profile; the gear icon of a profile edits it.*
+
 Each profile has separate measurements and its own device in Home Assistant, linked to the physical scale. If you upgrade from the previous single-profile setup, it becomes **Profile 1** and keeps its existing sensor IDs, readings, and history.
 
 The scale's **Scale user ID**, **Allow pairing or binding**, and optional **Require profile confirmation for each weighing** settings are shared by every profile and live in the integration's connection options. The user ID is the scale's authentication slot, not the profile ID. Selecting a profile does not change this setting or rebind the scale. If a weighing session is already running, Home Assistant lets it finish and associates the result with the original profile before the next session uses the newly selected profile.
+
+<img src="docs/images/screenshots/options.png" alt="Scale connection options with user ID, pairing, profile confirmation, weight check and phone proximity" width="450">
+
+*The scale's connection options, opened with the gear icon of the scale.*
 
 ## Profile assignment
 
@@ -97,6 +109,10 @@ The integration decides the profile of each weighing in this order:
 4. **Weight:** with **Automatic** and no nearby phone, the weighing goes to the only profile whose last weighing, or initial weight hint before the first weighing, is within 5% (10% for the hint). If two or more profiles fit, or none, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `reason` `ambiguous_weight` or `no_matching_profile` and the fitting profiles in `candidates`. The scale computes body fat with the profile it was set up for, which is the last weighed person, so body fat is dropped when the weighing goes to someone else. With only one profile, every weighing goes to it.
 
 Every activation and deactivation is logged. The **Assigned profile** sensor shows the profile that is active for the next weighing, or **Automatic**, with the attributes `method` (`selection`, `confirmation`, or `proximity`) and `activated_at`; its history shows when each profile was active. In addition, `huawei_ah100_profile_activated` and `huawei_ah100_profile_deactivated` events carry `entry_id`, `profile_id`, `profile_name`, `method`, optional `person_entity_id`, and for deactivation a `reason`: `weighing_saved`, `replaced`, `deselected`, `out_of_range`, `multiple_phones_nearby`, or the cancellation reason of a confirmation. The logbook lists these events together with saved weighings and how they were assigned (`assigned_by` in `huawei_ah100_measurement_saved`), and discarded weighings with their reason.
+
+<img src="docs/images/screenshots/logbook.png" alt="Logbook entries for a discarded weighing, a deactivated profile and a saved weighing" width="500">
+
+*Logbook entries: a profile selected directly, the weighing saved for it, the selection ending, and a weighing that fit no profile.*
 
 ## Optional household automations
 
@@ -150,8 +166,20 @@ The **SparkyFitness sync** sensor reports `disabled`, `pending`, `synced`, or `e
 
 The integration brings two dashboard cards. They load automatically; no resource entry or separate download is needed. Edit a dashboard, select **Add card**, and search for **Huawei AH100**. After an update, reload the browser page once.
 
+<img src="docs/images/screenshots/dashboard.png" alt="Dashboard with the scale card and two profile cards" width="800">
+
+*Example dashboard with demo data: the scale card and a profile card for each person.*
+
 - **Huawei AH100 scale** (`custom:huawei-ah100-card`): all profiles of a scale with their latest weight, body fat, time of the last weighing, SparkyFitness status, and a 30-day trend from the daily averages. A dropdown chooses the profile for the next weighing, a line shows which profile is active and how, and a discarded weighing from the past 24 hours is shown with its reason. Select a profile to open its weight history.
 - **Huawei AH100 profile** (`custom:huawei-ah100-profile-card`): one profile with its person picture, weight, trend, body fat, and impedance, and a **Weigh now** button. The button selects this profile for the next weighing; the card then asks you to step on the scale and offers **Cancel**. When phone proximity or a confirmation has activated the profile, the card says so.
+
+| Scale card | Profile selected | Weighing discarded |
+| --- | --- | --- |
+| <img src="docs/images/screenshots/card-scale.png" alt="Scale card in automatic mode" width="260"> | <img src="docs/images/screenshots/card-scale-selected.png" alt="Scale card with Anna selected for the next weighing" width="260"> | <img src="docs/images/screenshots/card-scale-rejected.png" alt="Scale card showing a discarded weighing" width="230"> |
+
+| Profile card | After **Weigh now** |
+| --- | --- |
+| <img src="docs/images/screenshots/card-profile.png" alt="Profile card with weight, trend and Weigh now button" width="300"> | <img src="docs/images/screenshots/card-profile-waiting.png" alt="Profile card asking to step on the scale, with a Cancel button" width="300"> |
 
 ```yaml
 type: custom:huawei-ah100-card
