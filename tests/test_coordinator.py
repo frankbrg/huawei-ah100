@@ -856,6 +856,7 @@ async def test_saved_and_disabled_completion_events_follow_durable_commit(coordi
     assert saved == {
         "entry_id": coordinator.entry.entry_id,
         "profile_id": "bob",
+        "profile_name": "Bob",
         "measurement_id": saved["measurement_id"],
         "weight_kg": 70.0,
         "fat_percent": 20.0,

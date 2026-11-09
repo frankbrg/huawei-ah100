@@ -499,6 +499,7 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         payload = {
             "entry_id": self.entry.entry_id,
             "profile_id": profile_id,
+            "profile_name": self._profiles[profile_id]["name"],
             "measurement_id": measurement_id,
             "weight_kg": measurement["weight_kg"],
             "fat_percent": measurement.get("fat_percent"),

@@ -41,6 +41,13 @@ REJECTION_REASONS = {
 }
 
 
+def _profile_name(hass: HomeAssistant, entry_id: Any, profile_id: Any) -> str:
+    entry = hass.config_entries.async_get_entry(entry_id) if isinstance(entry_id, str) else None
+    if entry is not None and (subentry := entry.subentries.get(profile_id)) is not None:
+        return subentry.title
+    return str(profile_id)
+
+
 def _method(data: dict[str, Any]) -> str:
     return METHODS.get(data.get("method") or data.get("assigned_by"), "unknown method")
 
@@ -77,9 +84,15 @@ def async_describe_events(
 
     @callback
     def describe_saved(event: Event) -> dict[str, str]:
-        message = f"saved {event.data.get('weight_kg')} kg, assigned by {_method(event.data)}"
+        entry_id = event.data.get("entry_id")
+        name = event.data.get("profile_name") or _profile_name(
+            hass, entry_id, event.data.get("profile_id")
+        )
+        message = (
+            f"saved {event.data.get('weight_kg')} kg for {name}, assigned by {_method(event.data)}"
+        )
         if redirected_from := event.data.get("redirected_from"):
-            message += f", moved from profile {redirected_from}"
+            message += f", moved from profile {_profile_name(hass, entry_id, redirected_from)}"
         if event.data.get("weight_check_overridden"):
             message += ", kept despite the weight check because it was selected directly"
         return {
@@ -91,11 +104,21 @@ def async_describe_events(
     @callback
     def describe_rejected(event: Event) -> dict[str, str]:
         reason = event.data.get("reason")
-        message = (
-            f"discarded {event.data.get('weight_kg')} kg: {REJECTION_REASONS.get(reason, reason)}"
-        )
-        if event.data.get("nearby_profiles"):
-            message += ", phones of several profiles were nearby"
+        entry_id = event.data.get("entry_id")
+
+        def names(profile_ids: list[str]) -> str:
+            return ", ".join(
+                _profile_name(hass, entry_id, profile_id) for profile_id in profile_ids
+            )
+
+        message = f"discarded {event.data.get('weight_kg')} kg"
+        if profile_id := event.data.get("profile_id"):
+            message += f" for {_profile_name(hass, entry_id, profile_id)}"
+        message += f": {REJECTION_REASONS.get(reason, reason)}"
+        if candidates := event.data.get("candidates"):
+            message += f" ({names(candidates)})"
+        if nearby := event.data.get("nearby_profiles"):
+            message += f", phones of several profiles were nearby ({names(nearby)})"
         return {
             LOGBOOK_ENTRY_NAME: NAME,
             LOGBOOK_ENTRY_ICON: "mdi:scale-unbalanced",
