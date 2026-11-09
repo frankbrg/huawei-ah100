@@ -72,6 +72,8 @@ def async_describe_events(
         message = f"saved {event.data.get('weight_kg')} kg, assigned by {_method(event.data)}"
         if redirected_from := event.data.get("redirected_from"):
             message += f", moved from profile {redirected_from}"
+        if event.data.get("weight_check_overridden"):
+            message += ", kept despite the weight check because it was selected directly"
         return {LOGBOOK_ENTRY_NAME: NAME, LOGBOOK_ENTRY_MESSAGE: message}
 
     @callback

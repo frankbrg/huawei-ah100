@@ -42,6 +42,13 @@ def _describers() -> dict[str, Callable[[Event], dict[str, str]]]:
             id="redirected",
         ),
         pytest.param(
+            "huawei_ah100_measurement_saved",
+            {"weight_kg": 95.0, "assigned_by": "selection", "weight_check_overridden": True},
+            "saved 95.0 kg, assigned by direct selection, "
+            "kept despite the weight check because it was selected directly",
+            id="overridden",
+        ),
+        pytest.param(
             "huawei_ah100_measurement_rejected",
             {"weight_kg": 85.0, "reason": "ambiguous_weight"},
             "discarded 85.0 kg: weight fits several profiles",

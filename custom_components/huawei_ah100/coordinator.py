@@ -472,6 +472,8 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             payload["assigned_by"] = assigned_by
         if redirected_from := measurement.get("redirected_from"):
             payload["redirected_from"] = redirected_from
+        if measurement.get("weight_check_overridden"):
+            payload["weight_check_overridden"] = True
         event = "measurement_saved"
         if sync_status is not None:
             payload["sync_status"] = sync_status
@@ -566,6 +568,21 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         )
         return None, measurement
 
+    def _overridden_check(self, measurement: dict[str, Any], profile_id: str) -> dict[str, Any]:
+        """Keep a directly selected weighing but flag it when it fails the weight check.
+
+        A deliberate selection is the way out when a real weight change or a wrong
+        reference would otherwise block every weighing of the profile.
+        """
+        if not self._settings.get(CONF_WEIGHT_CHECK, False):
+            return measurement
+        references = {other_id: self._weight_reference(other_id) for other_id in self._profiles}
+        outcome, _ = check_weight(measurement["weight_kg"], profile_id, references, verified=False)
+        if outcome is Outcome.ACCEPTED:
+            return measurement
+        _LOGGER.info("Directly selected weighing for %s kept despite the weight check", profile_id)
+        return {**measurement, "weight_check_overridden": True}
+
     async def _async_measurement(
         self,
         measurement: dict[str, Any],
@@ -580,11 +597,10 @@ class HuaweiScaleCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             raise ValueError("measurement profile does not exist")
         if method in (METHOD_WEIGHT, METHOD_SINGLE_PROFILE):
             profile_id, measurement = self._weight_assignment(measurement, profile_id)
+        elif method == METHOD_SELECTION:
+            measurement = self._overridden_check(measurement, profile_id)
         else:
-            # A confirmed or proximity-detected owner is trusted more than a selection.
-            profile_id, measurement = self._checked_profile(
-                measurement, profile_id, method in (METHOD_CONFIRMATION, METHOD_PROXIMITY)
-            )
+            profile_id, measurement = self._checked_profile(measurement, profile_id, verified=True)
         if profile_id is None:
             return
         payload = {

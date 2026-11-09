@@ -91,7 +91,7 @@ L’**Identifiant utilisateur de la balance**, l’option **Autoriser l’associ
 
 L’intégration détermine le profil de chaque pesée dans cet ordre :
 
-1. **Sélection directe :** choisissez la personne dans le sélecteur **Profil pour la prochaine pesée** de la balance. La sélection ne vaut que pour la prochaine pesée enregistrée ; ensuite le sélecteur revient sur **Automatique**. Une pesée ignorée conserve la sélection pour un nouvel essai. La sélection n’est pas conservée après un redémarrage.
+1. **Sélection directe :** choisissez la personne dans le sélecteur **Profil pour la prochaine pesée** de la balance. La sélection ne vaut que pour la prochaine pesée enregistrée ; ensuite le sélecteur revient sur **Automatique**. La sélection n’est pas conservée après un redémarrage.
 2. **Confirmation du profil**, si elle est activée (voir ci-dessous).
 3. **Proximité du téléphone**, si elle est activée (voir [Choix automatique du profil selon la proximité du téléphone](#choix-automatique-du-profil-selon-la-proximité-du-téléphone)).
 4. **Poids :** avec **Automatique** et sans téléphone proche, la pesée est attribuée au seul profil dont la dernière pesée, ou le poids initial indicatif avant la première pesée, est à moins de 5 % (10 % pour le poids indicatif). Si deux profils ou plus correspondent, ou aucun, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `reason` `ambiguous_weight` ou `no_matching_profile` et les profils correspondants dans `candidates`. La balance calcule la masse grasse avec le profil pour lequel elle a été configurée, celui de la dernière personne pesée ; la masse grasse est donc supprimée si la pesée revient à quelqu’un d’autre. Avec un seul profil, chaque pesée lui est attribuée.
@@ -122,13 +122,15 @@ Tant qu’exactement un téléphone de profil atteint au moins le seuil à ce sc
 
 ## Contrôle de plausibilité du poids
 
-Activez **Vérifier que le poids correspond au profil** dans les options de l’intégration de la balance pour repérer les pesées enregistrées pour la mauvaise personne. Cela concerne les pesées dont le profil a été sélectionné, confirmé ou trouvé par proximité du téléphone ; les pesées attribuées selon le poids sont toujours contrôlées comme décrit dans [Attribution du profil](#attribution-du-profil). Chaque pesée est comparée à la dernière pesée du profil datant de moins de 30 jours :
+Activez **Vérifier que le poids correspond au profil** dans les options de l’intégration de la balance pour repérer les pesées enregistrées pour la mauvaise personne. Cela concerne les pesées dont le profil a été confirmé ou trouvé par proximité du téléphone ; les pesées attribuées selon le poids sont toujours contrôlées comme décrit dans [Attribution du profil](#attribution-du-profil). Chaque pesée est comparée à la dernière pesée du profil datant de moins de 30 jours :
 
-- un écart jusqu’à 10 % est accepté si la proximité du téléphone ou une confirmation a choisi le profil, jusqu’à 5 % s’il a été sélectionné directement ;
+- un écart jusqu’à 10 % est accepté ;
 - avant la première pesée d’un profil, son poids initial indicatif sert de référence avec 10 % ;
 - si la dernière pesée date de plus de 30 jours, la pesée est acceptée sans contrôle, afin qu’une longue pause ou un régime ne fasse pas perdre de données.
 
 Si une pesée ne correspond pas, elle est attribuée au seul autre profil à moins de 5 %. La balance a calculé la masse grasse avec la taille, l’âge et le sexe du mauvais profil ; une pesée déplacée conserve donc le poids et l’impédance, mais pas la masse grasse, et `huawei_ah100_measurement_saved` contient alors `redirected_from`. Si aucun autre profil ou plusieurs profils correspondent, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `entry_id`, `profile_id`, `reason` `weight_mismatch`, `weight_kg`, `reference_weight_kg` et `impedance_ohm`. Le contrôle ne peut pas distinguer des personnes dont les poids diffèrent de moins de 5 %.
+
+Une pesée sélectionnée directement n’est jamais déplacée ni ignorée : un vrai changement de poids ou une ancienne pesée erronée ne peut donc pas bloquer un profil. Si elle échoue au contrôle, elle est tout de même enregistrée et `huawei_ah100_measurement_saved` contient `weight_check_overridden: true`, ce que le journal de bord affiche.
 
 ## Synchronisation SparkyFitness
 

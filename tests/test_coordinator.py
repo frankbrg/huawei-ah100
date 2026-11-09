@@ -1291,7 +1291,9 @@ async def test_weight_check_moves_mismatch_to_the_only_fitting_profile_without_b
     events, unsubscribes = capture_events(coordinator.hass, "measurement_saved")
     try:
         await scale._async_measurement(
-            {**MEASUREMENT, "weight_kg": 88.0, "fat_raw_tenths": 200}, "alice"
+            {**MEASUREMENT, "weight_kg": 88.0, "fat_raw_tenths": 200},
+            "alice",
+            method="confirmation",
         )
         await coordinator.hass.async_block_till_done()
     finally:
@@ -1317,7 +1319,9 @@ async def test_weight_check_rejects_a_weighing_that_fits_no_profile(coordinator)
         coordinator.hass, "measurement_rejected", "measurement_saved"
     )
     try:
-        await scale._async_measurement({**MEASUREMENT, "weight_kg": 50.0}, "alice")
+        await scale._async_measurement(
+            {**MEASUREMENT, "weight_kg": 50.0}, "alice", method="proximity"
+        )
         await coordinator.hass.async_block_till_done()
     finally:
         for unsubscribe in unsubscribes:
@@ -1338,24 +1342,24 @@ async def test_weight_check_rejects_a_weighing_that_fits_no_profile(coordinator)
 
 
 @pytest.mark.parametrize(
-    ("method", "expected_profile"),
+    ("method", "weight", "saved_weight"),
     [
-        pytest.param("selection", None, id="selection_5_percent"),
-        pytest.param("confirmation", "alice", id="confirmation_10_percent"),
-        pytest.param("proximity", "alice", id="proximity_10_percent"),
+        pytest.param("confirmation", 75.6, 75.6, id="confirmation_within_10_percent"),
+        pytest.param("proximity", 75.6, 75.6, id="proximity_within_10_percent"),
+        pytest.param("confirmation", 78.0, 70.0, id="confirmation_beyond_10_percent"),
     ],
 )
-async def test_weight_check_tolerance_depends_on_how_the_profile_was_chosen(
-    coordinator, method, expected_profile
-):
+async def test_weight_check_allows_10_percent_for_confirmation_and_proximity(
+    coordinator: HuaweiScaleCoordinator, method: str, weight: float, saved_weight: float
+) -> None:
     scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
     try:
         await scale._async_measurement({**MEASUREMENT, "weight_kg": 70.0}, "alice")
-        await scale._async_measurement({**MEASUREMENT, "weight_kg": 75.6}, "alice", method=method)
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": weight}, "alice", method=method)
     finally:
         await scale.async_stop()
 
-    assert scale.profile_data("alice")["weight_kg"] == (75.6 if expected_profile else 70.0)
+    assert scale.profile_data("alice")["weight_kg"] == saved_weight
 
 
 async def test_weight_check_skips_profiles_without_a_recent_weighing(coordinator):
@@ -1366,7 +1370,9 @@ async def test_weight_check_skips_profiles_without_a_recent_weighing(coordinator
             "custom_components.huawei_ah100.coordinator.dt_util.utcnow",
             return_value=datetime.now(ZoneInfo("UTC")) + timedelta(days=31),
         ):
-            await scale._async_measurement({**MEASUREMENT, "weight_kg": 60.0}, "alice")
+            await scale._async_measurement(
+                {**MEASUREMENT, "weight_kg": 60.0}, "alice", method="confirmation"
+            )
     finally:
         await scale.async_stop()
 
@@ -1592,16 +1598,33 @@ async def test_selection_is_logged_and_ends_with_its_weighing(
     ]
 
 
-async def test_rejected_weighing_keeps_the_selection(coordinator: HuaweiScaleCoordinator) -> None:
-    scale = HuaweiScaleCoordinator(coordinator.hass, make_checked_entry())
+@pytest.mark.parametrize(
+    ("weight", "overridden"),
+    [
+        pytest.param(150.0, True, id="outside_check_is_kept_and_flagged"),
+        pytest.param(72.0, False, id="within_check_is_not_flagged"),
+    ],
+)
+async def test_direct_selection_overrides_the_weight_check(
+    coordinator: HuaweiScaleCoordinator, weight: float, overridden: bool
+) -> None:
+    hass = coordinator.hass
+    scale = HuaweiScaleCoordinator(hass, make_checked_entry())
+    events, unsubscribes = capture_events(hass, "measurement_saved", "measurement_rejected")
     try:
         await scale.async_select_profile("alice")
-        await scale._async_measurement({**MEASUREMENT, "weight_kg": 150.0}, "alice")
+        await scale._async_measurement({**MEASUREMENT, "weight_kg": weight}, "alice")
+        await hass.async_block_till_done()
     finally:
+        for unsubscribe in unsubscribes:
+            unsubscribe()
         await scale.async_stop()
 
-    assert scale.profile_data("alice") is None
-    assert scale.active_profile_id == "alice"
+    assert scale.profile_data("alice")["weight_kg"] == weight
+    assert scale.profile_data("alice")["fat_percent"] == 20.0
+    assert scale.active_profile_id is None
+    assert [event.event_type for event in events] == ["huawei_ah100_measurement_saved"]
+    assert events[0].data.get("weight_check_overridden", False) is overridden
 
 
 async def test_phone_proximity_activation_and_deactivation_are_logged(

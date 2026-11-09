@@ -91,7 +91,7 @@ The scale's **Scale user ID**, **Allow pairing or binding**, and optional **Requ
 
 The integration decides the profile of each weighing in this order:
 
-1. **Direct selection:** pick the person in the scale's **Profile for next weighing** selector. The selection applies to the next saved weighing only; afterwards the selector returns to **Automatic**. A discarded weighing keeps the selection for another try. A selection is not kept across restarts.
+1. **Direct selection:** pick the person in the scale's **Profile for next weighing** selector. The selection applies to the next saved weighing only; afterwards the selector returns to **Automatic**. A selection is not kept across restarts.
 2. **Profile confirmation**, if enabled (see below).
 3. **Phone proximity**, if enabled (see [Automatic profile selection by phone proximity](#automatic-profile-selection-by-phone-proximity)).
 4. **Weight:** with **Automatic** and no nearby phone, the weighing goes to the only profile whose last weighing, or initial weight hint before the first weighing, is within 5% (10% for the hint). If two or more profiles fit, or none, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `reason` `ambiguous_weight` or `no_matching_profile` and the fitting profiles in `candidates`. The scale computes body fat with the profile it was set up for, which is the last weighed person, so body fat is dropped when the weighing goes to someone else. With only one profile, every weighing goes to it.
@@ -122,13 +122,15 @@ While exactly one profile phone is at or above the threshold at that scanner, th
 
 ## Weight plausibility check
 
-Enable **Check that the weight fits the profile** in the scale's integration options to catch weighings stored for the wrong person. This applies to weighings whose profile was selected, confirmed, or found by phone proximity; weighings assigned by weight are always checked as described in [Profile assignment](#profile-assignment). Each weighing is compared with the profile's last weighing from the past 30 days:
+Enable **Check that the weight fits the profile** in the scale's integration options to catch weighings stored for the wrong person. This applies to weighings whose profile was confirmed or found by phone proximity; weighings assigned by weight are always checked as described in [Profile assignment](#profile-assignment). Each weighing is compared with the profile's last weighing from the past 30 days:
 
-- up to 10% difference is accepted when phone proximity or a profile confirmation chose the profile, up to 5% when it was selected directly;
+- up to 10% difference is accepted;
 - before a profile's first weighing, its initial weight hint is used with 10%;
 - if the last weighing is older than 30 days, the weighing is accepted without a check, so a long break or a diet does not lose data.
 
 When a weighing does not fit, it moves to the only other profile within 5%. The scale calculated body fat with the wrong profile's height, age, and sex, so a moved weighing keeps weight and impedance but no body fat; `huawei_ah100_measurement_saved` then contains `redirected_from`. If no other profile or more than one fits, the weighing is discarded and `huawei_ah100_measurement_rejected` is emitted with `entry_id`, `profile_id`, `reason` `weight_mismatch`, `weight_kg`, `reference_weight_kg`, and `impedance_ohm`. The check cannot tell apart people whose weights are within 5% of each other.
+
+A directly selected weighing is never moved or discarded, so a real weight change or a wrong earlier weighing cannot block a profile. If it fails the check, it is still saved and `huawei_ah100_measurement_saved` contains `weight_check_overridden: true`, which the logbook shows.
 
 ## SparkyFitness sync
 
