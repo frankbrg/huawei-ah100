@@ -5,9 +5,12 @@ from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceEntryType
 
 from custom_components.huawei_ah100.sensor import (
+    PHONE_SIGNAL_DESCRIPTION,
     SENSOR_DESCRIPTIONS,
     SYNC_STATUS_DESCRIPTION,
     SYNC_STATUS_OPTIONS,
+    HuaweiAH100AssignedProfileSensor,
+    HuaweiAH100PhoneSignalSensor,
     HuaweiAH100Sensor,
     HuaweiAH100SyncStatusSensor,
     async_setup_entry,
@@ -185,10 +188,90 @@ async def test_setup_adds_entities_to_each_profile_subentry() -> None:
     entry = SimpleNamespace(runtime_data=coordinator)
     await async_setup_entry(None, entry, add_entities)
 
-    assert [subentry_id for _, subentry_id in batches] == ["legacy", "second"]
-    assert [len(entities) for entities, _ in batches] == [5, 5]
+    assert [subentry_id for _, subentry_id in batches] == [None, "legacy", "second"]
+    assert [len(entities) for entities, _ in batches] == [1, 5, 5]
+    assert isinstance(batches[0][0][0], HuaweiAH100AssignedProfileSensor)
     assert all(
         isinstance(entity, HuaweiAH100SyncStatusSensor)
-        for entities, _ in batches
+        for entities, _ in batches[1:]
         for entity in entities[-1:]
     )
+
+
+async def test_phone_signal_sensor_only_for_profiles_with_a_beacon() -> None:
+    rssi = {"second": -61}
+    coordinator = _coordinator(
+        {
+            "legacy": LEGACY_PROFILE,
+            "second": {
+                **SECOND_PROFILE,
+                "phone_beacon_uuids": ["e2c56db5-dffb-48d2-b060-d0f5a71096e0"],
+            },
+        }
+    )
+    coordinator.phone_rssi = rssi.get
+    batches = []
+
+    def add_entities(entities, config_subentry_id=None):
+        batches.append((list(entities), config_subentry_id))
+
+    await async_setup_entry(None, SimpleNamespace(runtime_data=coordinator), add_entities)
+
+    phone_sensors = [
+        entity
+        for entities, _ in batches
+        for entity in entities
+        if isinstance(entity, HuaweiAH100PhoneSignalSensor)
+    ]
+    assert [sensor.profile_id for sensor in phone_sensors] == ["second"]
+    sensor = phone_sensors[0]
+    assert sensor.unique_id == f"{ADDRESS}_second_phone_rssi"
+    assert sensor.native_value == -61
+    assert sensor.should_poll
+    assert sensor.device_info["identifiers"] == {("huawei_ah100", f"{ADDRESS}_second")}
+    assert PHONE_SIGNAL_DESCRIPTION.entity_category == EntityCategory.DIAGNOSTIC
+    assert PHONE_SIGNAL_DESCRIPTION.entity_registry_enabled_default is False
+    rssi.clear()
+    assert sensor.native_value is None
+
+
+def test_assigned_profile_sensor_shows_activated_profile_and_method() -> None:
+    since = datetime(2026, 11, 8, 7, 30, tzinfo=UTC)
+    coordinator = _coordinator({"legacy": LEGACY_PROFILE, "second": SECOND_PROFILE})
+    coordinator.assignment = None
+    coordinator.assignment_since = None
+    coordinator.last_rejection = None
+    sensor = HuaweiAH100AssignedProfileSensor(coordinator)
+
+    assert sensor.unique_id == f"{ADDRESS}_assigned_profile"
+    assert sensor.options == ["automatic", "Alex", "Sam"]
+    assert sensor.native_value == "automatic"
+    assert sensor.extra_state_attributes == {"method": None}
+    assert sensor.device_info["identifiers"] == {("huawei_ah100", ADDRESS)}
+
+    coordinator.assignment = ("second", "proximity")
+    coordinator.assignment_since = since
+    assert sensor.native_value == "Sam"
+    assert sensor.extra_state_attributes == {
+        "profile_id": "second",
+        "method": "proximity",
+        "activated_at": since.isoformat(),
+    }
+
+
+def test_assigned_profile_sensor_reports_the_last_discarded_weighing() -> None:
+    coordinator = _coordinator({"legacy": LEGACY_PROFILE})
+    coordinator.assignment = None
+    coordinator.assignment_since = None
+    coordinator.last_rejection = {
+        "rejected_at": "2026-11-09T07:40:00+00:00",
+        "weight_kg": 85.0,
+        "reason": "ambiguous_weight",
+    }
+
+    assert HuaweiAH100AssignedProfileSensor(coordinator).extra_state_attributes == {
+        "method": None,
+        "last_rejected_at": "2026-11-09T07:40:00+00:00",
+        "last_rejected_weight_kg": 85.0,
+        "last_rejected_reason": "ambiguous_weight",
+    }

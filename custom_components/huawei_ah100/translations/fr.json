@@ -10,7 +10,7 @@
       "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
       "height_not_integer": "Saisissez une taille entière en centimètres.",
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
-      "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
+      "invalid_birth_date": "Saisissez une date valide.",
       "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
       "invalid_mac": "Saisissez une adresse MAC Bluetooth valide.",
       "invalid_name": "Saisissez un nom de profil.",
@@ -30,7 +30,7 @@
         "description": "Configurez ci-dessous le premier profil et les options de connexion partagées. Après validation, fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs se remplissent lorsque Home Assistant reçoit une mesure réelle.",
         "data": {
           "name": "Nom du profil",
-          "birth_date": "Date de naissance (JJ/MM/AAAA)",
+          "birth_date": "Date de naissance",
           "height_cm": "Taille (cm)",
           "sex": "Sexe",
           "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -43,11 +43,11 @@
         },
         "data_description": {
           "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
           "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
@@ -76,7 +76,7 @@
         "data": {
           "address": "Adresse MAC Bluetooth",
           "name": "Nom du profil",
-          "birth_date": "Date de naissance (JJ/MM/AAAA)",
+          "birth_date": "Date de naissance",
           "height_cm": "Taille (cm)",
           "sex": "Sexe",
           "initial_weight_kg": "Poids initial indicatif (kg)",
@@ -90,11 +90,11 @@
         "data_description": {
           "address": "Saisissez l’adresse MAC Bluetooth de la balance uniquement pour la configuration manuelle.",
           "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-          "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+          "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
           "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
           "sex": "Choisissez le sexe de la personne du profil.",
           "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+          "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
           "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
           "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
           "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
@@ -109,7 +109,10 @@
       "invalid_allow_bind": "Choisissez si l’association est autorisée.",
       "invalid_require_profile_confirmation": "Choisissez si le profil doit être confirmé.",
       "invalid_user_id": "L’identifiant utilisateur de la balance doit être compris entre 0 et 255.",
-      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier."
+      "user_id_not_integer": "L’identifiant utilisateur doit être un nombre entier.",
+      "invalid_proximity_enabled": "Indiquez si la proximité du téléphone choisit le profil.",
+      "invalid_proximity_rssi": "Le seuil doit être un nombre entier entre -100 et -30 dBm.",
+      "invalid_weight_check": "Indiquez si le poids doit être vérifié."
     },
     "step": {
       "init": {
@@ -118,12 +121,18 @@
         "data": {
           "user_id": "Identifiant utilisateur de la balance",
           "allow_bind": "Autoriser l’association",
-          "require_profile_confirmation": "Confirmer le profil à chaque pesée"
+          "require_profile_confirmation": "Confirmer le profil à chaque pesée",
+          "weight_plausibility_check": "Vérifier que le poids correspond au profil",
+          "proximity_profile_selection": "Choisir le profil selon la proximité du téléphone",
+          "proximity_rssi_threshold": "Seuil de signal pour la proximité du téléphone"
         },
         "data_description": {
           "user_id": "Emplacement filaire avancé de la balance, partagé par tous les profils. Gardez la valeur par défaut 1 sauf si vous savez qu’un autre emplacement est nécessaire.",
           "allow_bind": "Activez uniquement si cet adaptateur n’est pas autorisé par la balance et qu’une association est nécessaire. Elle peut modifier l’association existante ; laissez l’option désactivée si l’adaptateur est déjà autorisé.",
-          "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse."
+          "require_profile_confirmation": "Si cette option est activée, le réveil de la balance demande aux automatisations Home Assistant de confirmer le profil de la personne qui se pèse.",
+          "weight_plausibility_check": "Compare chaque pesée à la dernière pesée du profil datant de moins de 30 jours. Écart admis : 10 % si la proximité du téléphone ou une confirmation a choisi le profil, 10 % par rapport au poids initial indicatif avant la première pesée. En cas d’écart, la pesée est attribuée au seul autre profil à moins de 5 %, sans masse grasse, car la balance l’a calculée avec le mauvais profil. Sinon, la pesée est ignorée et huawei_ah100_measurement_rejected est émis. Une pesée sélectionnée directement est toujours conservée et seulement signalée dans le journal de bord.",
+          "proximity_profile_selection": "Au réveil de la balance, si exactement un téléphone de profil est proche du scanner Bluetooth qui capte le mieux la balance, ce profil est utilisé. Sinon, la sélection directe, la demande de confirmation ou le poids décide.",
+          "proximity_rssi_threshold": "Puissance de signal minimale du téléphone au scanner de la balance. Aidez-vous du capteur de diagnostic Signal du téléphone du profil ; plus proche signifie plus fort, par exemple -55 dBm au lieu de -75 dBm."
         }
       }
     }
@@ -150,11 +159,33 @@
           "synced": "Synchronisée",
           "error": "Erreur"
         }
+      },
+      "phone_signal": {
+        "name": "Signal du téléphone"
+      },
+      "assigned_profile": {
+        "name": "Profil attribué",
+        "state": {
+          "automatic": "Automatique"
+        },
+        "state_attributes": {
+          "method": {
+            "name": "Méthode",
+            "state": {
+              "selection": "Sélection directe",
+              "confirmation": "Confirmation",
+              "proximity": "Proximité du téléphone"
+            }
+          }
+        }
       }
     },
     "select": {
       "active_profile": {
-        "name": "Profil actif"
+        "name": "Profil pour la prochaine pesée",
+        "state": {
+          "automatic": "Automatique"
+        }
       }
     }
   },
@@ -181,54 +212,58 @@
       "step": {
         "user": {
           "title": "Ajouter un profil de balance",
-          "description": "Créez un profil distinct pour une personne. Sélectionnez-le comme profil actif avant la pesée.",
+          "description": "Créez un profil distinct pour une personne. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
-            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "birth_date": "Date de naissance",
             "height_cm": "Taille (cm)",
             "sex": "Sexe",
             "initial_weight_kg": "Poids initial indicatif (kg)",
             "person_entity_id": "Personne Home Assistant (facultatif)",
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
-            "sparky_api_key": "Clé API SparkyFitness"
+            "sparky_api_key": "Clé API SparkyFitness",
+            "phone_beacon_uuids": "UUID iBeacon des téléphones (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
-            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil."
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil.",
+            "phone_beacon_uuids": "Choisissez un appareil que Home Assistant voit actuellement (signal le plus fort en premier ; placez-vous près de la balance avec le téléphone, puis ouvrez cette boîte de dialogue) ou saisissez un UUID, par exemple celui de l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         },
         "reconfigure": {
           "title": "Modifier le profil de balance",
-          "description": "Modifiez les réglages de ce profil. Sélectionnez-le comme profil actif avant la pesée.",
+          "description": "Modifiez les réglages de ce profil. Sélectionnez-le pour la prochaine pesée ou laissez la balance l’attribuer automatiquement.",
           "data": {
             "name": "Nom du profil",
-            "birth_date": "Date de naissance (JJ/MM/AAAA)",
+            "birth_date": "Date de naissance",
             "height_cm": "Taille (cm)",
             "sex": "Sexe",
             "initial_weight_kg": "Poids initial indicatif (kg)",
             "person_entity_id": "Personne Home Assistant (facultatif)",
             "sparky_enabled": "Envoyer les nouvelles mesures à SparkyFitness",
             "sparky_url": "URL du serveur SparkyFitness",
-            "sparky_api_key": "Clé API SparkyFitness"
+            "sparky_api_key": "Clé API SparkyFitness",
+            "phone_beacon_uuids": "UUID iBeacon des téléphones (facultatif)"
           },
           "data_description": {
             "name": "Choisissez un nom unique pour le profil de cette personne. Le renommer conserve l’historique de ses capteurs.",
-            "birth_date": "Saisissez la date réelle de naissance de la personne du profil. Format : JJ/MM/AAAA. Exemple fictif : 31/01/2000.",
+            "birth_date": "Saisissez la date réelle de naissance de la personne du profil.",
             "height_cm": "Saisissez la taille de la personne du profil en centimètres entiers.",
             "sex": "Choisissez le sexe de la personne du profil.",
             "initial_weight_kg": "Valeur de départ pour le profil de la balance uniquement ; ce n’est pas une mesure ni une valeur de capteur.",
-            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas le profil actif et n’authentifie personne.",
+            "person_entity_id": "Entité Personne Home Assistant facultative, affichée comme métadonnée en lecture seule. Elle ne sélectionne pas de profil et n’authentifie personne.",
             "sparky_enabled": "Si activée, les nouveaux poids réels et la masse grasse disponible sont envoyés au compte ci-dessous. Le poids indicatif et l’historique enregistré ne sont pas envoyés.",
             "sparky_url": "Saisissez uniquement l’URL racine du serveur, sans chemin d’API.",
-            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas."
+            "sparky_api_key": "Créez une clé dans ce compte SparkyFitness avec la permission health_data_write. Utilisez la clé du compte associé à ce profil. Laissez ce champ vide pour conserver la clé enregistrée ; Home Assistant ne la préremplit pas.",
+            "phone_beacon_uuids": "Choisissez un appareil que Home Assistant voit actuellement (signal le plus fort en premier ; placez-vous près de la balance avec le téléphone, puis ouvrez cette boîte de dialogue) ou saisissez un UUID, par exemple celui de l’émetteur BLE de l’application Home Assistant Companion. Ajoutez une entrée par appareil. Utilisés uniquement si la sélection automatique du profil par proximité du téléphone est activée dans les options de la balance."
           }
         }
       },
@@ -236,7 +271,7 @@
         "age_out_of_range": "L’âge du profil doit être inférieur ou égal à 127 ans.",
         "future_birth_date": "La date de naissance ne peut pas être dans le futur.",
         "height_not_integer": "Saisissez une taille entière en centimètres.",
-        "invalid_birth_date": "Saisissez une date valide au format JJ/MM/AAAA.",
+        "invalid_birth_date": "Saisissez une date valide.",
         "invalid_height": "La taille doit être comprise entre 1 et 255 cm.",
         "invalid_name": "Saisissez un nom de profil.",
         "invalid_person": "Sélectionnez une personne Home Assistant valide.",
@@ -246,7 +281,9 @@
         "invalid_sparky_url": "Saisissez une URL racine valide pour le serveur SparkyFitness.",
         "invalid_weight": "Le poids initial doit être supérieur à 0 et inférieur ou égal à 300 kg.",
         "missing_sparky_api_key": "Saisissez une clé API pour le compte SparkyFitness choisi.",
-        "duplicate_profile_name": "Un profil portant ce nom existe déjà."
+        "duplicate_profile_name": "Un profil portant ce nom existe déjà.",
+        "invalid_beacon_uuid": "Chaque entrée doit être un UUID valide, par exemple e2c56db5-dffb-48d2-b060-d0f5a71096e0.",
+        "duplicate_beacon_uuid": "Un autre profil utilise déjà l’un de ces UUID."
       }
     }
   },

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -11,16 +11,30 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfMass
+from homeassistant.const import (
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    EntityCategory,
+    UnitOfMass,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_LEGACY_PROFILE, CONF_PERSON, DOMAIN
+from .const import (
+    AUTOMATIC_OPTION,
+    CONF_BEACON_UUIDS,
+    CONF_LEGACY_PROFILE,
+    CONF_PERSON,
+    DOMAIN,
+    NAME,
+)
 from .coordinator import HuaweiScaleCoordinator
 
 _OHM = "Ω"
+# Only the phone signal sensor polls; the other sensors are pushed by the coordinator.
+SCAN_INTERVAL = timedelta(seconds=5)
 SYNC_STATUS_OPTIONS = ("disabled", "pending", "synced", "error")
 
 SENSOR_DESCRIPTIONS = (
@@ -61,6 +75,21 @@ SYNC_STATUS_DESCRIPTION = SensorEntityDescription(
     entity_category=EntityCategory.DIAGNOSTIC,
 )
 
+PHONE_SIGNAL_DESCRIPTION = SensorEntityDescription(
+    key="phone_rssi",
+    translation_key="phone_signal",
+    device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+    native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    entity_category=EntityCategory.DIAGNOSTIC,
+    entity_registry_enabled_default=False,
+)
+
+ASSIGNED_PROFILE_DESCRIPTION = SensorEntityDescription(
+    key="assigned_profile",
+    translation_key="assigned_profile",
+    device_class=SensorDeviceClass.ENUM,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -68,12 +97,16 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
+    if coordinator.profiles:
+        async_add_entities([HuaweiAH100AssignedProfileSensor(coordinator)])
     for profile_id, profile in coordinator.profiles.items():
         entities = [
             HuaweiAH100Sensor(coordinator, profile_id, profile, description)
             for description in SENSOR_DESCRIPTIONS
         ]
         entities.append(HuaweiAH100SyncStatusSensor(coordinator, profile_id, profile))
+        if profile.get(CONF_BEACON_UUIDS):
+            entities.append(HuaweiAH100PhoneSignalSensor(coordinator, profile_id, profile))
         async_add_entities(entities, config_subentry_id=profile_id)
 
 
@@ -182,3 +215,82 @@ class HuaweiAH100SyncStatusSensor(CoordinatorEntity[HuaweiScaleCoordinator], Sen
     @property
     def device_info(self) -> DeviceInfo:
         return _profile_device_info(self.coordinator, self.profile_id, self.profile)
+
+
+class HuaweiAH100PhoneSignalSensor(SensorEntity):
+    """Expose the strongest phone signal of a profile at the scale to tune the threshold."""
+
+    entity_description = PHONE_SIGNAL_DESCRIPTION
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: HuaweiScaleCoordinator,
+        profile_id: str,
+        profile: Mapping[str, Any],
+    ) -> None:
+        self.coordinator = coordinator
+        self.profile_id = profile_id
+        self.profile = profile
+        self._attr_unique_id = f"{coordinator.address}_{profile_id}_phone_rssi"
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.phone_rssi(self.profile_id)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _profile_device_info(self.coordinator, self.profile_id, self.profile)
+
+
+class HuaweiAH100AssignedProfileSensor(CoordinatorEntity[HuaweiScaleCoordinator], SensorEntity):
+    """Show which profile is activated for the next weighing and how, for the history."""
+
+    entity_description = ASSIGNED_PROFILE_DESCRIPTION
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: HuaweiScaleCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.address}_assigned_profile"
+
+    @property
+    def options(self) -> list[str]:
+        return [
+            AUTOMATIC_OPTION,
+            *(profile["name"] for profile in self.coordinator.profiles.values()),
+        ]
+
+    @property
+    def native_value(self) -> str:
+        if (assignment := self.coordinator.assignment) is None:
+            return AUTOMATIC_OPTION
+        return self.coordinator.profiles[assignment[0]]["name"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attributes: dict[str, Any] = {"method": None}
+        if (assignment := self.coordinator.assignment) is not None:
+            since = self.coordinator.assignment_since
+            attributes = {
+                "profile_id": assignment[0],
+                "method": assignment[1],
+                "activated_at": since.isoformat() if since is not None else None,
+            }
+        if (rejection := self.coordinator.last_rejection) is not None:
+            attributes.update(
+                {
+                    "last_rejected_at": rejection["rejected_at"],
+                    "last_rejected_weight_kg": rejection["weight_kg"],
+                    "last_rejected_reason": rejection["reason"],
+                }
+            )
+        return attributes
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.address)},
+            name=NAME,
+            manufacturer="Huawei",
+            model="AH100",
+        )

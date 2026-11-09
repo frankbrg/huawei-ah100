@@ -1,6 +1,6 @@
 # Huawei AH100 pour Home Assistant
 
-[English](../README.md) | [Français](README.fr.md)
+[English](../README.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 
 ![Illustration de l’intégration Huawei AH100](images/hero.svg)
 
@@ -17,7 +17,7 @@ Une intégration Bluetooth locale et non officielle pour lire dans Home Assistan
 
 ## Fonctionnalités
 
-Chaque balance configurée correspond à un appareil physique dans Home Assistant. Vous pouvez créer un profil nommé pour chaque personne qui l’utilise et choisir explicitement le profil actif avant la pesée. L’intégration ne déduit pas l’identité de la personne à partir de son poids. Si une pesée est déjà en cours, laissez-la se terminer avant de changer de profil ; Home Assistant associe le résultat au profil actif au début de la session.
+Chaque balance configurée correspond à un appareil physique dans Home Assistant. Vous pouvez créer un profil nommé pour chaque personne qui l’utilise. Le profil d’une pesée provient d’une sélection directe, d’une confirmation, d’un téléphone proche ou, à défaut, du poids lui-même ; voir [Attribution du profil](#attribution-du-profil). Si une pesée est déjà en cours, laissez-la se terminer avant de changer de profil ; Home Assistant associe le résultat au profil choisi au début de la session.
 
 Chaque profil possède son propre appareil logique lié à la balance physique et quatre capteurs de mesure :
 
@@ -28,7 +28,7 @@ Chaque profil possède son propre appareil logique lié à la balance physique e
 | Impédance | Ω | Impédance électrique rapportée par la balance |
 | Dernière mesure | UTC | Heure de réception de la dernière mesure valide par Home Assistant |
 
-L’appareil physique de la balance possède aussi un sélecteur **Profil actif**. Chaque appareil de profil inclut un capteur de diagnostic **Synchronisation SparkyFitness** : il indique « désactivée » si la synchronisation est désactivée, « en attente » avant une première synchronisation confirmée ou tant que des données attendent, « synchronisée » après succès et « erreur » après un échec.
+L’appareil physique de la balance possède aussi un sélecteur **Profil pour la prochaine pesée** et un capteur **Profil attribué**. Chaque appareil de profil inclut un capteur de diagnostic **Synchronisation SparkyFitness** : il indique « désactivée » si la synchronisation est désactivée, « en attente » avant une première synchronisation confirmée ou tant que des données attendent, « synchronisée » après succès et « erreur » après un échec.
 
 Les attributs de mesure comprennent `user_id`, l’horodatage local de la balance (`device_measured_at`), son champ de jour de la semaine (`weekday`) et les octets de fin non interprétés (`unknown_tail_hex`). Ces octets restent explicitement inconnus : ils ne sont pas présentés comme de la graisse viscérale ou une autre mesure corporelle. L’intégration ne calcule pas l’eau, les muscles, les os, l’IMC, le métabolisme de base ni d’autres valeurs dérivées.
 
@@ -68,7 +68,7 @@ Si la recherche ne trouve aucune balance, réveillez-la à nouveau puis sélecti
 Le formulaire initial crée le premier profil nommé et configure la connexion partagée. Renseignez :
 
 - **Nom du profil :** un nom qui indique à qui appartiennent les mesures.
-- **Date de naissance :** la date réelle de la personne du profil, au format `JJ/MM/AAAA` (exemple fictif : `31/01/2000`).
+- **Date de naissance :** la date réelle de la personne du profil, saisie dans le champ de date du navigateur. Vous pouvez taper le jour, le mois et l'année au format de date de votre navigateur, ou ouvrir le sélecteur pour choisir le mois et l'année.
 - **Taille :** la taille de la personne en centimètres entiers.
 - **Sexe :** la valeur du profil de la personne qui utilisera la balance.
 - **Poids initial indicatif :** une valeur de départ pour le profil de la balance. Ce n’est pas une mesure ni une valeur de capteur.
@@ -77,25 +77,76 @@ Le formulaire initial crée le premier profil nommé et configure la connexion p
 - **Identifiant utilisateur de la balance :** emplacement utilisé pour l’authentification Bluetooth, `1` par défaut. Ce réglage est partagé par tous les profils ; gardez `1` sauf si vous savez qu’un autre emplacement est nécessaire.
 - **Autoriser l’association :** réglage de connexion partagé. Activez-le si cet adaptateur n’a pas été autorisé par la balance et qu’une association est nécessaire. Cela peut modifier l’association existante ; laissez-le désactivé si l’adaptateur est déjà autorisé.
 
+<img src="images/screenshots/add-profile.png" alt="Formulaire de profil avec nom, date de naissance, taille, sexe, poids initial, personne, SparkyFitness et iBeacon" width="420">
+
+*Les champs du profil tels qu’affichés par **Ajouter un profil** (interface en anglais). Le premier formulaire de configuration contient les mêmes champs, plus l’adresse MAC et les options de connexion. La date de naissance suit le format de date de votre navigateur.*
+
 Validez le formulaire une seule fois. Fermez Huawei Health, montez pieds nus sur la balance et restez immobile jusqu’à la fin de la pesée. Les capteurs ne reçoivent des valeurs qu’après la réception d’une mesure réelle par Home Assistant ; le poids initial indicatif ne les alimente pas.
 
 ## Ajouter et choisir des profils
 
 Ouvrez la page de l’intégration Huawei AH100 dans **Paramètres → Appareils et services**, puis sélectionnez **Ajouter un profil** pour créer un autre profil. Vous pouvez modifier ou renommer un profil depuis la même page. Chaque nom doit être unique. Renommer un profil conserve l’identité de ses capteurs et leur historique.
 
-Avant de monter sur la balance, choisissez la personne dans le sélecteur **Profil actif** de l’appareil physique. Chaque profil possède ses propres mesures et son propre appareil Home Assistant, lié à la balance physique. Après la mise à jour depuis l’ancienne configuration à profil unique, elle devient **Profile 1** et conserve ses identifiants de capteurs, ses mesures et leur historique.
+<img src="images/screenshots/integration-page.png" alt="Page de l’intégration Huawei AH100 avec la balance et les profils Anna et Ben" width="560">
 
-L’**Identifiant utilisateur de la balance**, l’option **Autoriser l’association** et l’option facultative **Confirmer le profil à chaque pesée** sont des réglages de connexion partagés par tous les profils et se trouvent dans les options de l’intégration. Cet identifiant est l’emplacement de la balance utilisé pour l’authentification Bluetooth, pas l’identifiant du profil. Changer de profil actif ne modifie pas ce réglage et ne réassocie pas la balance. Si une session est en cours, Home Assistant la laisse se terminer et associe son résultat au profil d’origine avant d’utiliser le nouveau profil pour la prochaine session.
+*La page de l’intégration : un appareil pour la balance et un par profil. **Ajouter un profil** crée un autre profil ; l’icône d’engrenage d’un profil permet de le modifier.*
+
+Chaque profil possède ses propres mesures et son propre appareil Home Assistant, lié à la balance physique. Après la mise à jour depuis l’ancienne configuration à profil unique, elle devient **Profile 1** et conserve ses identifiants de capteurs, ses mesures et leur historique.
+
+L’**Identifiant utilisateur de la balance**, l’option **Autoriser l’association** et l’option facultative **Confirmer le profil à chaque pesée** sont des réglages de connexion partagés par tous les profils et se trouvent dans les options de l’intégration. Cet identifiant est l’emplacement de la balance utilisé pour l’authentification Bluetooth, pas l’identifiant du profil. Sélectionner un profil ne modifie pas ce réglage et ne réassocie pas la balance. Si une session est en cours, Home Assistant la laisse se terminer et associe son résultat au profil d’origine avant d’utiliser le nouveau profil pour la prochaine session.
+
+<img src="images/screenshots/options.png" alt="Options de connexion de la balance : identifiant, association, confirmation, contrôle du poids et proximité" width="450">
+
+*Les options de connexion de la balance, ouvertes avec l’icône d’engrenage de la balance.*
+
+## Attribution du profil
+
+L’intégration détermine le profil de chaque pesée dans cet ordre :
+
+1. **Sélection directe :** choisissez la personne dans le sélecteur **Profil pour la prochaine pesée** de la balance. La sélection ne vaut que pour la prochaine pesée enregistrée ; ensuite le sélecteur revient sur **Automatique**. La sélection n’est pas conservée après un redémarrage.
+2. **Confirmation du profil**, si elle est activée (voir ci-dessous).
+3. **Proximité du téléphone**, si elle est activée (voir [Choix automatique du profil selon la proximité du téléphone](#choix-automatique-du-profil-selon-la-proximité-du-téléphone)).
+4. **Poids :** avec **Automatique** et sans téléphone proche, la pesée est attribuée au seul profil dont la dernière pesée, ou le poids initial indicatif avant la première pesée, est à moins de 5 % (10 % pour le poids indicatif). Si deux profils ou plus correspondent, ou aucun, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `reason` `ambiguous_weight` ou `no_matching_profile` et les profils correspondants dans `candidates`. La balance calcule la masse grasse avec le profil pour lequel elle a été configurée, celui de la dernière personne pesée ; la masse grasse est donc supprimée si la pesée revient à quelqu’un d’autre. Avec un seul profil, chaque pesée lui est attribuée.
+
+Chaque activation et désactivation est journalisée. Le capteur **Profil attribué** indique le profil actif pour la prochaine pesée, ou **Automatique**, avec les attributs `method` (`selection`, `confirmation` ou `proximity`) et `activated_at` ; son historique montre quand chaque profil était actif. Les événements `huawei_ah100_profile_activated` et `huawei_ah100_profile_deactivated` contiennent `entry_id`, `profile_id`, `profile_name`, `method`, `person_entity_id` facultatif et, pour la désactivation, une `reason` : `weighing_saved`, `replaced`, `deselected`, `out_of_range`, `multiple_phones_nearby` ou le motif d’annulation d’une confirmation. Le journal de bord liste ces événements avec les pesées enregistrées, le profil auquel elles ont été attribuées (`profile_name` dans `huawei_ah100_measurement_saved`) et leur mode d’attribution (`assigned_by`), ainsi que les pesées ignorées avec leur motif et les profils concernés.
+
+<img src="images/screenshots/logbook.png" alt="Entrées du journal de bord pour une pesée ignorée, un profil sélectionné directement avec sa pesée et une pesée attribuée selon le poids" width="500">
+
+*Entrées du journal de bord, de la plus récente à la plus ancienne : une pesée qui ne correspondait à aucun profil, Ben sélectionné directement et sa pesée enregistrée, puis une pesée attribuée à Anna selon le poids.*
 
 ## Automatisations de foyer facultatives
 
-Le choix manuel du profil actif reste le comportement par défaut. Pour demander aux automatisations Home Assistant de confirmer le profil à chaque pesée, activez **Confirmer le profil à chaque pesée** dans les options de l’intégration de la balance. Cette option n’apparaît pas dans la configuration initiale.
+Sans cette option, le profil provient du sélecteur, d’un téléphone proche ou du poids. Pour demander aux automatisations Home Assistant de confirmer le profil à chaque pesée, activez **Confirmer le profil à chaque pesée** dans les options de l’intégration de la balance. Cette option n’apparaît pas dans la configuration initiale.
 
 Lorsque l’option est activée, le réveil de la balance émet l’événement `huawei_ah100_weighing_requested` avec l’`entry_id` de la balance, un `request_id`, une heure d’expiration `expires_at` et les profils configurés (`profile_id`, `name` et, s’il existe, `person_entity_id`). L’intégration ne détermine pas qui est présent au domicile et n’envoie pas de notifications ; créez vos propres automatisations Home Assistant. Elles peuvent confirmer automatiquement lorsqu’une seule personne admissible est identifiée par la logique du foyer, ou envoyer des notifications avec action lorsque plusieurs personnes peuvent se peser. Pour une notification avec action, transmettez le `trigger.event.context.user_id` de l’événement d’origine dans `claimant_user_id` ; utilisez ce contexte et non une valeur d’identité fournie dans les données de l’action.
 
 Une automatisation confirme un profil avec `huawei_ah100.claim_weighing`, en transmettant l’`entry_id` et le `request_id` de l’événement ainsi que le `profile_id` choisi. Le champ facultatif `claimant_user_id` indique l’utilisateur Home Assistant authentifié qui a appuyé sur l’action d’une notification ; laissez-le vide pour une sélection automatique fiable. La première confirmation valide est retenue. Une demande est refusée après son expiration, lorsque la balance s’endort ou se déconnecte, ou lorsque Home Assistant est rechargé. Une fois confirmé, le profil reste associé à cette mesure, car la balance utilise ses données démographiques pour calculer la masse grasse. Si la balance s’est déjà rendormie, réveillez-la à nouveau, confirmez la nouvelle demande, puis pesez-vous.
 
 Après une confirmation, l’intégration émet `huawei_ah100_profile_confirmed`. Elle émet `huawei_ah100_weighing_cancelled` si une demande se termine sans mesure ; cet événement contient un `reason`. Quand une mesure est enregistrée durablement en local, `huawei_ah100_measurement_saved` est émis avec son `measurement_id` ; il peut déclencher un retour immédiat, par exemple un voyant vert. `huawei_ah100_measurement_completed` est émis pour cette même mesure durable après la réussite de SparkyFitness ou si la synchronisation est désactivée ; son `sync_status` vaut `synced` ou `disabled`. Utilisez l’événement terminé pour envoyer une notification finale du résultat à la personne concernée. Les champs d’événement et le cycle de vie des demandes sont détaillés dans les [notes de protocole](protocol.md).
+
+## Choix automatique du profil selon la proximité du téléphone
+
+Si chaque membre du foyer porte un téléphone qui diffuse un iBeacon, la balance peut choisir le profil seule. L’application Home Assistant Companion pour Android le permet avec son capteur **Émetteur BLE** ; toute autre source iBeacon convient aussi. L’adresse Bluetooth du téléphone peut changer, c’est pourquoi l’intégration identifie les téléphones uniquement par leur UUID iBeacon.
+
+1. Sur chaque téléphone, activez l’émetteur iBeacon.
+2. Placez-vous près de la balance avec le téléphone, modifiez le profil et choisissez l’appareil dans **UUID iBeacon des téléphones**. La liste affiche les iBeacons que Home Assistant voit actuellement, signal le plus fort en premier, avec le scanner qui les reçoit. Elle est remplie à l’ouverture de la boîte de dialogue ; rouvrez-la pour l’actualiser. Vous pouvez aussi saisir un UUID, une entrée par appareil. Un profil peut avoir plusieurs UUID, par exemple un téléphone et une balise, mais chaque UUID ne peut appartenir qu’à un seul profil.
+3. Activez le capteur de diagnostic **Signal du téléphone** du profil, désactivé par défaut. Il indique le signal le plus fort des appareils de ce profil au scanner Bluetooth qui capte le mieux la balance, par exemple un proxy Bluetooth ESPHome dans la salle de bain. Les mesures de plus de 10 secondes sont ignorées.
+4. Placez-vous sur la balance avec le téléphone là où vous le portez d’habitude et notez la valeur. Notez ensuite la valeur depuis l’endroit où se trouvent habituellement les autres personnes, par exemple la pièce voisine.
+5. Dans les options de l’intégration de la balance, activez **Choisir le profil selon la proximité du téléphone** et réglez **Seuil de signal pour la proximité du téléphone** entre ces deux valeurs. La valeur par défaut est -65 dBm.
+
+Tant qu’exactement un téléphone de profil atteint au moins le seuil à ce scanner, ce profil est activé et une pesée l’utilise, sauf si un profil a été sélectionné directement. L’intégration vérifie toutes les 5 secondes et journalise l’arrivée et le départ du téléphone. Avec **Confirmer le profil à chaque pesée**, l’intégration confirme elle-même le profil : elle n’émet pas `huawei_ah100_weighing_requested` et émet `huawei_ah100_profile_confirmed` avec `source: proximity` ; une sélection directe est confirmée de la même façon avec `source: selection`. Plusieurs appareils d’un même profil comptent pour un seul. Si les téléphones de deux profils ou plus sont proches en même temps, la proximité ne choisit pas : `huawei_ah100_multiple_phones_nearby` est émis avec `profile_ids` et `profile_names`, un profil activé par proximité est désactivé avec le motif `multiple_phones_nearby` et la pesée est attribuée selon le poids. Si cette pesée est ensuite ignorée, `huawei_ah100_measurement_rejected` liste aussi ces profils dans `nearby_profiles`. Si aucun téléphone n’est proche, la pesée est également attribuée selon le poids. Les UUID des téléphones et les mesures de signal restent dans Home Assistant et ne sont jamais envoyés à SparkyFitness.
+
+## Contrôle de plausibilité du poids
+
+Activez **Vérifier que le poids correspond au profil** dans les options de l’intégration de la balance pour repérer les pesées enregistrées pour la mauvaise personne. Cela concerne les pesées dont le profil a été confirmé ou trouvé par proximité du téléphone ; les pesées attribuées selon le poids sont toujours contrôlées comme décrit dans [Attribution du profil](#attribution-du-profil). Chaque pesée est comparée à la dernière pesée du profil datant de moins de 30 jours :
+
+- un écart jusqu’à 10 % est accepté ;
+- avant la première pesée d’un profil, son poids initial indicatif sert de référence avec 10 % ;
+- si la dernière pesée date de plus de 30 jours, la pesée est acceptée sans contrôle, afin qu’une longue pause ou un régime ne fasse pas perdre de données.
+
+Si une pesée ne correspond pas, elle est attribuée au seul autre profil à moins de 5 %. La balance a calculé la masse grasse avec la taille, l’âge et le sexe du mauvais profil ; une pesée déplacée conserve donc le poids et l’impédance, mais pas la masse grasse, et `huawei_ah100_measurement_saved` contient alors `redirected_from`. Si aucun autre profil ou plusieurs profils correspondent, la pesée est ignorée et `huawei_ah100_measurement_rejected` est émis avec `entry_id`, `profile_id`, `reason` `weight_mismatch`, `weight_kg`, `reference_weight_kg` et `impedance_ohm`. Le contrôle ne peut pas distinguer des personnes dont les poids diffèrent de moins de 5 %.
+
+Une pesée sélectionnée directement n’est jamais déplacée ni ignorée : un vrai changement de poids ou une ancienne pesée erronée ne peut donc pas bloquer un profil. Si elle échoue au contrôle, elle est tout de même enregistrée et `huawei_ah100_measurement_saved` contient `weight_check_overridden: true`, ce que le journal de bord affiche.
 
 ## Synchronisation SparkyFitness
 
@@ -111,10 +162,39 @@ L’intégration envoie uniquement les nouvelles pesées réelles : le poids en 
 
 Le capteur **Synchronisation SparkyFitness** indique « désactivée », « en attente », « synchronisée » ou « erreur ». Un profil configuré peut afficher « en attente » avant sa première synchronisation confirmée. Si le serveur est inaccessible, la mesure reste en file d’attente et l’envoi sera réessayé. Un changement d’URL ou de clé ne redirige pas une mesure en attente vers un autre compte. La configuration ne crée pas de fausse mesure de test et n’envoie pas l’historique.
 
+## Cartes de tableau de bord
+
+L’intégration fournit deux cartes de tableau de bord. Elles se chargent automatiquement, sans ressource à déclarer ni téléchargement séparé. Modifiez un tableau de bord, choisissez **Ajouter une carte** et recherchez **Huawei AH100**. Après une mise à jour, rechargez une fois la page du navigateur.
+
+<img src="images/screenshots/dashboard.png" alt="Tableau de bord avec la carte de la balance et deux cartes de profil" width="800">
+
+*Exemple de tableau de bord avec des données de démonstration : la carte de la balance et une carte de profil par personne.*
+
+- **Balance Huawei AH100** (`custom:huawei-ah100-card`) : tous les profils d’une balance avec le dernier poids, la masse grasse, l’heure de la dernière pesée, l’état SparkyFitness et une tendance sur 30 jours issue des moyennes journalières. Une liste déroulante choisit le profil de la prochaine pesée, une ligne indique quel profil est actif et comment, et une pesée ignorée au cours des dernières 24 heures est affichée avec son motif. Sélectionnez un profil pour ouvrir l’historique de son poids.
+- **Profil Huawei AH100** (`custom:huawei-ah100-profile-card`) : un profil avec la photo de la personne, le poids, la tendance, la masse grasse et l’impédance, ainsi qu’un bouton **Peser maintenant**. Le bouton sélectionne ce profil pour la prochaine pesée ; la carte invite alors à monter sur la balance et propose **Annuler**. Si la proximité du téléphone ou une confirmation a activé le profil, la carte l’indique.
+
+| Carte de la balance | Profil sélectionné | Pesée ignorée |
+| --- | --- | --- |
+| <img src="images/screenshots/card-scale.png" alt="Carte de la balance en mode automatique" width="260"> | <img src="images/screenshots/card-scale-selected.png" alt="Carte de la balance avec Anna sélectionnée pour la prochaine pesée" width="260"> | <img src="images/screenshots/card-scale-rejected.png" alt="Carte de la balance affichant une pesée ignorée" width="230"> |
+
+| Carte de profil | Après **Peser maintenant** |
+| --- | --- |
+| <img src="images/screenshots/card-profile.png" alt="Carte de profil avec poids, tendance et bouton" width="300"> | <img src="images/screenshots/card-profile-waiting.png" alt="Carte de profil demandant de monter sur la balance, avec un bouton Annuler" width="300"> |
+
+```yaml
+type: custom:huawei-ah100-card
+device_id: <appareil balance>
+---
+type: custom:huawei-ah100-profile-card
+device_id: <appareil profil>
+```
+
+Les deux cartes acceptent un `title` facultatif. Elles suivent le thème du tableau de bord et s’affichent en anglais, allemand ou français selon la langue de Home Assistant. La tendance repose sur les statistiques à long terme ; elle apparaît après le premier jour avec des pesées.
+
 ## Dépannage
 
 - **La liste des appareils proches est vide ou sans nom :** fermez Huawei Health, réveillez la balance et relancez la recherche à portée Bluetooth. Vérifiez que l’adaptateur Bluetooth de Home Assistant est en mode **Automatique** ou **Actif** pour récupérer le nom annoncé. Avec un adaptateur uniquement passif, utilisez **Configuration manuelle** et saisissez l’adresse MAC.
-- **Les capteurs sont indisponibles :** choisissez le bon **Profil actif**, puis effectuez une pesée pieds nus et restez immobile jusqu’à la fin. Les capteurs ont besoin d’une mesure réelle pour recevoir leurs valeurs.
+- **Les capteurs sont indisponibles :** choisissez la personne dans **Profil pour la prochaine pesée**, puis effectuez une pesée pieds nus et restez immobile jusqu’à la fin. Les capteurs ont besoin d’une mesure réelle pour recevoir leurs valeurs.
 - **L’authentification est refusée :** si cet adaptateur n’a pas été autorisé par la balance, activez **Autoriser l’association** dans les options de connexion de l’intégration, puis réveillez à nouveau la balance. L’association peut modifier celle déjà enregistrée ; n’activez cette option qu’en cas de besoin.
 - **Un téléphone est connecté ou Home Assistant ne parvient pas à se connecter :** fermez Huawei Health, déconnectez les autres téléphones ou clients de la balance, puis vérifiez l’adresse MAC sélectionnée ou saisie.
 - **La synchronisation SparkyFitness reste en attente ou affiche une erreur :** vérifiez l’accès au serveur, l’URL du profil et que sa clé API appartient au bon compte et possède la permission `health_data_write`. Vérifiez aussi que le compte et Home Assistant utilisent le même fuseau horaire.

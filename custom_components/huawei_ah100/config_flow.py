@@ -17,27 +17,33 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
-from homeassistant.core import callback, split_entity_id
+from homeassistant.core import HomeAssistant, callback, split_entity_id
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_ALLOW_BIND,
+    CONF_BEACON_UUIDS,
     CONF_BIRTH_DATE,
     CONF_HEIGHT,
     CONF_INITIAL_WEIGHT,
     CONF_LEGACY_PROFILE,
     CONF_PERSON,
+    CONF_PROXIMITY_ENABLED,
+    CONF_PROXIMITY_RSSI,
     CONF_REQUIRE_PROFILE_CONFIRMATION,
     CONF_SEX,
     CONF_SPARKY_API_KEY,
     CONF_SPARKY_ENABLED,
     CONF_SPARKY_URL,
     CONF_USER_ID,
+    CONF_WEIGHT_CHECK,
+    DEFAULT_PROXIMITY_RSSI,
     DOMAIN,
     NAME,
     SUBENTRY_PROFILE,
 )
+from .proximity import normalize_beacon_uuid, parse_ibeacon_uuid
 from .sparky import normalize_base_url
 
 if TYPE_CHECKING:
@@ -48,7 +54,6 @@ _MAC_RE = re.compile(r"^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$")
 _MAC_UNSEPARATED_RE = re.compile(r"^[0-9A-F]{12}$")
 _MAC_HYPHENATED_RE = re.compile(r"^(?:[0-9A-F]{2}-){5}[0-9A-F]{2}$")
 _ISO_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-_FRENCH_DATE_RE = re.compile(r"^[0-9]{2}/[0-9]{2}/[0-9]{4}$")
 _MANUAL_DEVICE = "manual"
 
 
@@ -79,6 +84,7 @@ def _profile_schema(
     *,
     include_address: bool = False,
     include_connection: bool = False,
+    beacon_options: list[dict[str, str]] | None = None,
     name_default: str = DEFAULT_PROFILE_NAME,
 ) -> probatio.Schema:
     fields: dict[Any, Any] = {}
@@ -89,7 +95,8 @@ def _profile_schema(
             probatio.Required(CONF_NAME, default=name_default): selector(
                 {"text": {"type": "text"}}
             ),
-            probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "text"}}),
+            # Native date input: typed in the browser's date format, picker with year choice.
+            probatio.Required(CONF_BIRTH_DATE): selector({"text": {"type": "date"}}),
             probatio.Required(CONF_HEIGHT): selector(
                 {"number": {"min": 1, "max": 255, "step": 1, "mode": "box"}}
             ),
@@ -111,12 +118,23 @@ def _profile_schema(
             probatio.Optional(CONF_SPARKY_API_KEY): selector({"text": {"type": "password"}}),
         }
     )
+    if beacon_options is not None:
+        fields[probatio.Optional(CONF_BEACON_UUIDS)] = selector(
+            {
+                "select": {
+                    "options": beacon_options,
+                    "multiple": True,
+                    "custom_value": True,
+                    "mode": "dropdown",
+                }
+            }
+        )
     if include_connection:
         fields.update(_connection_fields())
     return probatio.Schema(fields)
 
 
-PROFILE_SCHEMA = _profile_schema()
+PROFILE_SCHEMA = _profile_schema(beacon_options=[])
 USER_SCHEMA = _profile_schema(include_address=True, include_connection=True)
 BLUETOOTH_SCHEMA = _profile_schema(include_connection=True)
 OPTIONS_SCHEMA = probatio.Schema(
@@ -124,6 +142,19 @@ OPTIONS_SCHEMA = probatio.Schema(
         **_connection_fields(),
         probatio.Optional(CONF_REQUIRE_PROFILE_CONFIRMATION, default=False): selector(
             {"boolean": {}}
+        ),
+        probatio.Optional(CONF_WEIGHT_CHECK, default=False): selector({"boolean": {}}),
+        probatio.Optional(CONF_PROXIMITY_ENABLED, default=False): selector({"boolean": {}}),
+        probatio.Optional(CONF_PROXIMITY_RSSI, default=DEFAULT_PROXIMITY_RSSI): selector(
+            {
+                "number": {
+                    "min": -100,
+                    "max": -30,
+                    "step": 1,
+                    "mode": "slider",
+                    "unit_of_measurement": "dBm",
+                }
+            }
         ),
     }
 )
@@ -134,12 +165,10 @@ def _as_date(value: Any) -> date | None:
         return value
     if not isinstance(value, str):
         return None
+    value = value.strip()
     try:
         if _ISO_DATE_RE.fullmatch(value):
             return date.fromisoformat(value)
-        if _FRENCH_DATE_RE.fullmatch(value):
-            day, month, year = (int(part) for part in value.split("/"))
-            return date(year, month, day)
     except ValueError:
         pass
     return None
@@ -191,6 +220,9 @@ def _profile_errors(
     if person is not None and _person_entity_id(person) is None:
         errors[CONF_PERSON] = "invalid_person"
 
+    if _beacon_uuids(user_input.get(CONF_BEACON_UUIDS)) is None:
+        errors[CONF_BEACON_UUIDS] = "invalid_beacon_uuid"
+
     sparky_enabled = user_input.get(CONF_SPARKY_ENABLED, False)
     if not isinstance(sparky_enabled, bool):
         errors[CONF_SPARKY_ENABLED] = "invalid_sparky_enabled"
@@ -232,6 +264,22 @@ def _connection_errors(user_input: dict[str, Any]) -> dict[str, str]:
         user_input[CONF_REQUIRE_PROFILE_CONFIRMATION], bool
     ):
         errors[CONF_REQUIRE_PROFILE_CONFIRMATION] = "invalid_require_profile_confirmation"
+
+    if CONF_WEIGHT_CHECK in user_input and not isinstance(user_input[CONF_WEIGHT_CHECK], bool):
+        errors[CONF_WEIGHT_CHECK] = "invalid_weight_check"
+    if CONF_PROXIMITY_ENABLED in user_input and not isinstance(
+        user_input[CONF_PROXIMITY_ENABLED], bool
+    ):
+        errors[CONF_PROXIMITY_ENABLED] = "invalid_proximity_enabled"
+    rssi = user_input.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+    if (
+        isinstance(rssi, bool)
+        or not isinstance(rssi, (int, float))
+        or not math.isfinite(rssi)
+        or not -100 <= rssi <= -30
+        or not float(rssi).is_integer()
+    ):
+        errors[CONF_PROXIMITY_RSSI] = "invalid_proximity_rssi"
     return errors
 
 
@@ -275,6 +323,77 @@ def _profile_name_errors(
     return {}
 
 
+def _beacon_uuids(value: Any) -> list[str] | None:
+    """Return the canonical, de-duplicated UUIDs, or None if any entry is invalid."""
+    if value is None:
+        return []
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, list):
+        return None
+    result: list[str] = []
+    for item in values:
+        if isinstance(item, str) and not item.strip():
+            continue
+        if (uuid := normalize_beacon_uuid(item)) is None:
+            return None
+        if uuid not in result:
+            result.append(uuid)
+    return result
+
+
+def _beacon_errors(
+    user_input: Mapping[str, Any],
+    subentries: Mapping[str, Any],
+    exclude_subentry_id: str | None = None,
+) -> dict[str, str]:
+    beacon_uuids = set(_beacon_uuids(user_input.get(CONF_BEACON_UUIDS)) or ())
+    for subentry in subentries.values():
+        if (
+            subentry.subentry_type == SUBENTRY_PROFILE
+            and subentry.subentry_id != exclude_subentry_id
+            and beacon_uuids.intersection(subentry.data.get(CONF_BEACON_UUIDS, ()))
+        ):
+            return {CONF_BEACON_UUIDS: "duplicate_beacon_uuid"}
+    return {}
+
+
+def _beacon_options(
+    hass: HomeAssistant,
+    subentries: Mapping[str, Any],
+    selected: Any,
+    exclude_subentry_id: str | None = None,
+) -> list[dict[str, str]]:
+    """Offer the iBeacons Home Assistant currently sees, strongest first."""
+    taken = {
+        beacon_uuid
+        for subentry in subentries.values()
+        if subentry.subentry_type == SUBENTRY_PROFILE
+        and subentry.subentry_id != exclude_subentry_id
+        for beacon_uuid in subentry.data.get(CONF_BEACON_UUIDS, ())
+    }
+    nearby: dict[str, tuple[int, str]] = {}
+    for info in bluetooth.async_discovered_service_info(hass, connectable=False):
+        beacon_uuid = parse_ibeacon_uuid(info.manufacturer_data)
+        if beacon_uuid is None or beacon_uuid in taken:
+            continue
+        if beacon_uuid not in nearby or info.rssi > nearby[beacon_uuid][0]:
+            scanner = bluetooth.async_scanner_by_source(hass, info.source)
+            nearby[beacon_uuid] = (info.rssi, scanner.name if scanner else info.source)
+    options = [
+        {"value": beacon_uuid, "label": f"{beacon_uuid} · {rssi} dBm · {scanner_name}"}
+        for beacon_uuid, (rssi, scanner_name) in sorted(
+            nearby.items(), key=lambda item: item[1][0], reverse=True
+        )
+    ]
+    # Keep entries that are already chosen or typed visible even when they are out of range.
+    options.extend(
+        {"value": beacon_uuid, "label": beacon_uuid}
+        for beacon_uuid in _beacon_uuids(selected) or ()
+        if beacon_uuid not in nearby
+    )
+    return options
+
+
 def _initial_errors(user_input: dict[str, Any]) -> dict[str, str]:
     errors = _profile_errors(user_input)
     errors.update(_connection_errors(user_input))
@@ -299,6 +418,8 @@ def _profile_data(
     }
     if person := _person_entity_id(user_input.get(CONF_PERSON)):
         data[CONF_PERSON] = person
+    if beacon_uuids := _beacon_uuids(user_input.get(CONF_BEACON_UUIDS)):
+        data[CONF_BEACON_UUIDS] = beacon_uuids
 
     sparky_url = user_input.get(CONF_SPARKY_URL) or (existing_data or {}).get(CONF_SPARKY_URL)
     if isinstance(sparky_url, str) and sparky_url.strip():
@@ -310,6 +431,13 @@ def _profile_data(
     if isinstance(api_key, str) and api_key.strip():
         data[CONF_SPARKY_API_KEY] = api_key.strip()
     return data
+
+
+def _form_suggestions(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return the entered values so a form keeps them after a validation error."""
+    suggestions = dict(user_input or {})
+    suggestions.pop(CONF_SPARKY_API_KEY, None)
+    return suggestions
 
 
 def _device_schema(devices: dict[str, str]) -> probatio.Schema:
@@ -400,7 +528,13 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 return await self._async_create_entry(address, user_input)
 
-        return self.async_show_form(step_id="manual", data_schema=USER_SCHEMA, errors=errors)
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=self.add_suggested_values_to_schema(
+                USER_SCHEMA, _form_suggestions(user_input)
+            ),
+            errors=errors,
+        )
 
     async def _async_create_entry(
         self, address: str, user_input: dict[str, Any]
@@ -431,7 +565,11 @@ class HuaweiAH100ConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = _initial_errors(discovery_info)
             if errors:
                 return self.async_show_form(
-                    step_id="bluetooth", data_schema=BLUETOOTH_SCHEMA, errors=errors
+                    step_id="bluetooth",
+                    data_schema=self.add_suggested_values_to_schema(
+                        BLUETOOTH_SCHEMA, _form_suggestions(discovery_info)
+                    ),
+                    errors=errors,
                 )
             return await self._async_create_entry(address, discovery_info)
 
@@ -472,6 +610,7 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                 errors[CONF_NAME] = "invalid_name"
             else:
                 errors.update(_profile_name_errors(name, entry.subentries))
+            errors.update(_beacon_errors(user_input, entry.subentries))
 
             if not errors:
                 return self.async_create_entry(
@@ -480,12 +619,17 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                     unique_id=None,
                 )
 
-        suggestions = dict(user_input or {})
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        suggestions = _form_suggestions(user_input)
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _profile_schema(name_default=name_default), suggestions
+                _profile_schema(
+                    beacon_options=_beacon_options(
+                        self.hass, entry.subentries, suggestions.get(CONF_BEACON_UUIDS)
+                    ),
+                    name_default=name_default,
+                ),
+                suggestions,
             ),
             errors=errors,
         )
@@ -510,6 +654,11 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                         exclude_subentry_id=subentry.subentry_id,
                     )
                 )
+            errors.update(
+                _beacon_errors(
+                    user_input, entry.subentries, exclude_subentry_id=subentry.subentry_id
+                )
+            )
 
             if not errors:
                 return self.async_update_and_abort(
@@ -523,13 +672,22 @@ class HuaweiAH100ProfileFlow(ConfigSubentryFlow):
                     title=name,
                 )
 
-        suggestions = {**subentry.data, CONF_NAME: subentry.title}
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
-        suggestions.update(user_input or {})
-        suggestions.pop(CONF_SPARKY_API_KEY, None)
+        suggestions = _form_suggestions(
+            {**subentry.data, CONF_NAME: subentry.title, **(user_input or {})}
+        )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(PROFILE_SCHEMA, suggestions),
+            data_schema=self.add_suggested_values_to_schema(
+                _profile_schema(
+                    beacon_options=_beacon_options(
+                        self.hass,
+                        entry.subentries,
+                        suggestions.get(CONF_BEACON_UUIDS),
+                        exclude_subentry_id=subentry.subentry_id,
+                    )
+                ),
+                suggestions,
+            ),
             errors=errors,
         )
 
@@ -550,6 +708,11 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                         CONF_REQUIRE_PROFILE_CONFIRMATION: user_input.get(
                             CONF_REQUIRE_PROFILE_CONFIRMATION, False
                         ),
+                        CONF_WEIGHT_CHECK: user_input.get(CONF_WEIGHT_CHECK, False),
+                        CONF_PROXIMITY_ENABLED: user_input.get(CONF_PROXIMITY_ENABLED, False),
+                        CONF_PROXIMITY_RSSI: int(
+                            user_input.get(CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI)
+                        ),
                     },
                 )
 
@@ -563,6 +726,11 @@ class HuaweiAH100OptionsFlow(OptionsFlow):
                     CONF_ALLOW_BIND: suggestions.get(CONF_ALLOW_BIND, False),
                     CONF_REQUIRE_PROFILE_CONFIRMATION: suggestions.get(
                         CONF_REQUIRE_PROFILE_CONFIRMATION, False
+                    ),
+                    CONF_WEIGHT_CHECK: suggestions.get(CONF_WEIGHT_CHECK, False),
+                    CONF_PROXIMITY_ENABLED: suggestions.get(CONF_PROXIMITY_ENABLED, False),
+                    CONF_PROXIMITY_RSSI: suggestions.get(
+                        CONF_PROXIMITY_RSSI, DEFAULT_PROXIMITY_RSSI
                     ),
                 },
             ),

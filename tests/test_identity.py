@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from homeassistant.core import HomeAssistant, callback
@@ -193,3 +193,49 @@ async def test_finished_weighing_is_not_cancelled_on_sleep(requests):
     manager.cancel("sleep", 1)
     await hass.async_block_till_done()
     assert not any(event.event_type.endswith("weighing_cancelled") for event in events)
+
+
+async def test_nearby_profile_is_confirmed_without_asking_automations(requests):
+    manager, hass, claimed, events = requests
+
+    future = manager.request(1, "bob")
+
+    assert await future == "bob"
+    claimed.assert_called_once_with("bob")
+    await hass.async_block_till_done()
+    assert [event.event_type for event in events] == ["huawei_ah100_profile_confirmed"]
+    assert events[0].data == {
+        "entry_id": "scale-entry",
+        "request_id": manager._request.request_id,
+        "profile_id": "bob",
+        "person_entity_id": "person.bob",
+        "source": "proximity",
+    }
+    with pytest.raises(ServiceValidationError):
+        manager.claim(manager._request.request_id, "alice")
+
+
+async def test_unknown_nearby_profile_falls_back_to_a_normal_request(requests):
+    manager, hass, claimed, events = requests
+
+    future = manager.request(1, "removed")
+
+    await hass.async_block_till_done()
+    assert [event.event_type for event in events] == ["huawei_ah100_weighing_requested"]
+    assert not future.done()
+    claimed.assert_not_called()
+
+
+async def test_release_is_reported_after_save_or_cancel_of_a_confirmed_request(requests):
+    manager, _, _, _ = requests
+    released = Mock()
+    manager._on_release = released
+
+    manager.request(1, "bob", source="selection")
+    manager.finish(1)
+    manager.request(2, "alice")
+    manager.cancel("sleep", 2)
+    manager.request(3)
+    manager.cancel("expired", 3)
+
+    assert released.call_args_list == [call("weighing_saved"), call("sleep")]

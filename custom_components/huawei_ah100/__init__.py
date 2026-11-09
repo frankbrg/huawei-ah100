@@ -9,6 +9,7 @@ from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
+from .card import async_register_card
 from .const import (
     CONF_ACTIVE_PROFILE,
     CONF_ALLOW_BIND,
@@ -70,6 +71,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: HuaweiScaleConfigEntry) -> bool:
     """Initialize the coordinator and forward the sensor platform setup."""
     async_setup_services(hass)
+    await async_register_card(hass)
     coordinator = HuaweiScaleCoordinator(hass, entry)
     entry.runtime_data = coordinator
     try:
