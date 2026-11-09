@@ -246,13 +246,20 @@ function weightHistory(hass, entityId, onUpdate) {
   const state = hass.states[entityId];
   const changed = state ? state.last_changed : "";
   const cached = statisticsCache[entityId];
+  if (cached && cached.loading) {
+    cached.listeners.add(onUpdate);
+    return cached.points;
+  }
   if (cached && cached.changed === changed && Date.now() - cached.fetchedAt < STATISTICS_TTL_MS) {
     return cached.points;
   }
-  if (cached && cached.loading) {
-    return cached.points;
-  }
-  const entry = { changed: changed, fetchedAt: Date.now(), points: cached ? cached.points : [], loading: true };
+  const entry = {
+    changed: changed,
+    fetchedAt: Date.now(),
+    points: cached ? cached.points : [],
+    loading: true,
+    listeners: new Set([onUpdate]),
+  };
   statisticsCache[entityId] = entry;
   hass
     .callWS({
@@ -267,10 +274,12 @@ function weightHistory(hass, entityId, onUpdate) {
         .map((row) => row.mean)
         .filter((value) => typeof value === "number");
       entry.loading = false;
-      onUpdate();
+      entry.listeners.forEach((listener) => listener());
+      entry.listeners.clear();
     })
     .catch(() => {
       entry.loading = false;
+      entry.listeners.clear();
     });
   return entry.points;
 }
@@ -715,12 +724,17 @@ class HuaweiAH100ProfileCard extends HuaweiAH100BaseCard {
   }
 }
 
-if (!customElements.get("huawei-ah100-card")) {
-  customElements.define("huawei-ah100-card", HuaweiAH100Card);
+function defineCards() {
+  if (!customElements.get("huawei-ah100-card")) {
+    customElements.define("huawei-ah100-card", HuaweiAH100Card);
+  }
+  if (!customElements.get("huawei-ah100-profile-card")) {
+    customElements.define("huawei-ah100-profile-card", HuaweiAH100ProfileCard);
+  }
 }
-if (!customElements.get("huawei-ah100-profile-card")) {
-  customElements.define("huawei-ah100-profile-card", HuaweiAH100ProfileCard);
-}
+
+// The frontend may install a scoped element registry later; elements defined before it are invisible.
+customElements.whenDefined("home-assistant").then(defineCards);
 
 window.customCards = window.customCards || [];
 const pickerLanguage = (navigator.language || "en").split("-")[0];
